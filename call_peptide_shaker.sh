@@ -1,24 +1,13 @@
 #! /bin/bash
 
-DATABASE_NAMES=${1:-"Homo_sapiens NZ_Contaminants"}
-IFS=', ' read -r -a DATABASE_NAMES <<< "$DATABASE_NAMES"
-SPECTRA=${2:-data/mgf_input}
-PARAMS_NAME=${3:-thp1}
-SEARCHGUI_PATH=${4:-/z/home/aoj/opt/SearchGUI-3.3.1/SearchGUI-3.3.1.jar}
-PEPTIDESHAKER_PATH=${5:-/z/home/aoj/opt/PeptideShaker-1.16.23/PeptideShaker-1.16.23.jar}
-EXP_NAME=${6:-thp1}
-PS_OUT=${7:-peptideShaker_out}
-SETTINGS_DIR=${8:-settings}
-ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT_DIR=${9:-$ROOT_DIR/thp1}
-
+source load_flags.sh > /dev/null 2>&1
 
 #########################################
 ## Data processing
 #########################################
 
 i=1
-for FILEPATH in $ROOT_DIR/$SPECTRA/*.mgf
+for FILEPATH in $ROOT_DIR/$EXP_NAME/$SPECTRA/*.mgf
 do
   SAMPLE_ID="sample_$i"
   FILENAME=$(basename $FILEPATH)
@@ -27,8 +16,8 @@ do
   echo $FILENAME
   echo $SAMPLE_NAME
 
-  CONDITION_NAME=$(grep $SAMPLE_NAME  $ROOT_DIR/$SPECTRA/../experimental_design.tsv | awk '{print $5}')
-  REPLICATE=$(grep $SAMPLE_NAME  $ROOT_DIR/$SPECTRA/../experimental_design.tsv | awk '{print $1}')
+  CONDITION_NAME=$(grep $SAMPLE_NAME  $ROOT_DIR/$EXP_NAME/$SPECTRA/../experimental_design.tsv | awk '{print $5}')
+  REPLICATE=$(grep $SAMPLE_NAME  $ROOT_DIR/$EXP_NAME/$SPECTRA/../experimental_design.tsv | awk '{print $1}')
   
   echo $CONDITION_NAME
   echo $REPLICATE
@@ -36,11 +25,11 @@ do
   #IDENTIFICATION_FILES=$(find `pwd`/searchgui_out -maxdepth 1 | grep "$SAMPLE_NAME" | grep -v -e "\.mgf$" )
   #IDENTIFICATION_FILES_STRING="$(echo $IDENTIFICATION_FILES | sed 's/ /, /g')"
 
-  if [ ! -f "$PS_OUT/$SAMPLE_NAME.cpsx" ] && [ -f $ROOT_DIR/searchgui_out/$SAMPLE_NAME.msgf.mzid ]
+  if [ ! -f "$PS_OUT/$SAMPLE_NAME.cpsx" ] && [ -f $ROOT_DIR/$EXP_NAME/searchgui_out/$SAMPLE_NAME.msgf.mzid ]
   then
     echo "Calling peptideshaker"
-    find $ROOT_DIR/searchgui_out -maxdepth 1 | grep "$SAMPLE_NAME" | grep -v -e "\.mgf$"  > searchgui_out/identification_files_$SAMPLE_NAME.txt
-    zip -j $ROOT_DIR/searchgui_out/identification_files_$SAMPLE_NAME.zip -@ < $ROOT_DIR/searchgui_out/identification_files_$SAMPLE_NAME.txt
+    find $ROOT_DIR/$EXP_NAME/searchgui_out -maxdepth 1 | grep "$SAMPLE_NAME" | grep -v -e "\.mgf$"  > searchgui_out/identification_files_$SAMPLE_NAME.txt
+    zip -j $ROOT_DIR/$EXP_NAME/searchgui_out/identification_files_$SAMPLE_NAME.zip -@ < $ROOT_DIR/$EXP_NAME/searchgui_out/identification_files_$SAMPLE_NAME.txt
 
     echo $FILEPATH
 
@@ -48,9 +37,9 @@ do
       -experiment $EXP_NAME \
       -sample $CONDITION_NAME \
       -replicate $REPLICATE  \
-      -identification_files $ROOT_DIR/searchgui_out/identification_files_$SAMPLE_NAME.zip \
+      -identification_files $ROOT_DIR/$EXP_NAME/searchgui_out/identification_files_$SAMPLE_NAME.zip \
       -spectrum_files \"$FILEPATH\" \
-      -id_params $ROOT_DIR/$SETTINGS_DIR/$PARAMS_NAME.par \
+      -id_params $ROOT_DIR/$EXP_NAME/$SETTINGS_DIR/$PARAMS_NAME.par \
       -out $PS_OUT/$SAMPLE_NAME.cpsx
 
      # #########################################
