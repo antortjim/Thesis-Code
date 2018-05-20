@@ -9,9 +9,8 @@
 #EXP_NAME=${6:-thp1}
 #PS_OUT=${7:-peptideShaker_out}
 #SETTINGS_DIR=${8:-settings}
-#ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-source load_flags.sh > /dev/null 2>&1
+SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
 
 echo DATABASE_NAMES
 echo ${DATABASE_NAMES[*]}

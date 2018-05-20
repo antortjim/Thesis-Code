@@ -1,26 +1,11 @@
 library("dplyr")
 
-# system("head -1 fractions_export.txt | sed 's/#/Number_/g' > fractions_export_clean.txt ")
-# system("tail -n +2 fractions_export.txt  | sed \"s/'/prime/g\" >> fractions_export_clean.txt")
 
 home <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
+reports_dir <- "thesis/genedata/thp1/peptideShaker_out/reports"
 
-
-
-protein_report <- read.table(file.path(home, "thesis/genedata/thp1/peptideShaker_out/reports/test_experiment_sample_1_1_Default_Protein_Report_clean.txt"),
-                             sep = "\t", header=T, na.strings = "")
-my_report <- read.table(file.path(home, "thesis/genedata/thp1/peptideShaker_out/reports/my_report_clean.txt"),
-                        sep = "\t", header=T, na.strings = "")
-peptide_report <- read.table(file.path(home, "thesis/genedata/thp1/peptideShaker_out/reports/test_experiment_sample_1_1_Default_Peptide_Report_clean.txt"),
-                             sep = "\t", header=T, na.strings = "")
-
-# peptide_report <- read.table(file.path(home, "thesis/genedata/thp1/peptideShaker_out/reports/peptide_report_clean.txt"),
-#                              sep = "\t", header=T, na.strings = "")
-
-psm_report <- read.table(file.path(home, "thesis/genedata/thp1/peptideShaker_out/reports/test_experiment_sample_1_1_Default_PSM_Report_clean.txt"),
-                         sep = "\t", header=T, na.strings = "", stringsAsFactors = F)
-
-mz_i <- read.table(file = file.path(home, "thesis/genedata/thp1/data/mgf/mz_intensity.txt"))
+metadata_table <- read.table(file = file.path(home, "thesis/genedata/thp1/data/mgf_metadata/PD7502-GDTHP1-A_C1_metadata_table.tsv"),
+                             header=T)
 scan <- read.table(file = file.path(home, "thesis/genedata/thp1/data/mgf/scans.txt"))
 precursor <- data.frame(Spectrum.Scan.Number = scan[,1], mz = mz_i[,1], intensity = mz_i[,2])
 

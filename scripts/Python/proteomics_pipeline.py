@@ -4,18 +4,20 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("--database_names", default = "Homo_sapiens NZ_Contaminants")
 parser.add_argument("--spectra", default = "data/mgf_input")
-parser.add_argument("--params_name", default = "thp1")
+parser.add_argument("--exp_name", required=True)
 parser.add_argument("--searchgui_path", default = "/z/home/aoj/opt/SearchGUI-3.3.1/SearchGUI-3.3.1.jar")
 parser.add_argument("--peptideshaker_path", default = "/z/home/aoj/opt/PeptideShaker-1.16.23/PeptideShaker-1.16.23.jar")
-parser.add_argument("--exp_name", default = "thp1")
+parser.add_argument("--params_name", required=False)
 parser.add_argument("--ps_out", default = "peptideShaker_out")
 parser.add_argument("--settings_dir", default = "settings")
 parser.add_argument("--root_dir", default = "/z/home/aoj/thesis/genedata/")
-parser.add_argument("--steps", default = "0 1 2 3 4")
+parser.add_argument("--steps", default = "0")
 
 args = parser.parse_args()
 arguments = vars(args)
 arguments["steps"] = [int(x) for x in arguments["steps"].split(" ")]
+if arguments["params_name"] is None:
+    arguments["params_name"] = arguments["exp_name"]
 
 import subprocess
 import numpy as np
@@ -24,7 +26,7 @@ scripts = np.array(["check_flags.sh", "create_decoy_database.sh", "create_settin
 scripts = scripts[arguments["steps"]]
 arguments["steps"] = " ".join([str(e) for e in arguments["steps"]])
 
-handle = open("{}/pipeline_settings_{}.txt".format(arguments["root_dir"], arguments["exp_name"]), "w")
+handle = open("{}/pipeline_settings.txt".format(arguments["root_dir"]), "w")
 for key, value in arguments.items():
     handle.write("{}:{}\n".format(key.upper(), value.replace(" ", ",")))
 handle.close()
@@ -35,7 +37,7 @@ handle.close()
 print(scripts)
 print("start")
 for scr in scripts:
-    cmd = r"nohup {}/scripts/bash/{}".format(arguments["root_dir"], scr)
+    cmd = r"nohup {}/scripts/bash/{} > {}/{}/{}.out".format(arguments["root_dir"], scr, arguments["root_dir"], arguments["exp_name"], arguments["exp_name"])
     print(cmd)
     subprocess.check_call(cmd, shell=True)
 print("end")

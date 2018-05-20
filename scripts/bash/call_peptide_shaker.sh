@@ -1,6 +1,8 @@
 #! /bin/bash
 
-source load_flags.sh > /dev/null 2>&1
+SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
+
 
 #########################################
 ## Data processing
