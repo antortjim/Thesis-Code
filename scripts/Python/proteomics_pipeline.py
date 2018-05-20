@@ -22,7 +22,7 @@ if arguments["params_name"] is None:
 import subprocess
 import numpy as np
 
-scripts = np.array(["check_flags.sh", "create_decoy_database.sh", "create_settings_file.sh", "search_mgf.sh", "call_peptide_shaker.sh"])
+scripts = np.array(["check_flags.sh", "create_decoy_database.sh", "create_settings_file.sh", "search_mgf.sh", "call_peptide_shaker.sh", "fetch_mgf_metadata.sh"])
 scripts = scripts[arguments["steps"]]
 arguments["steps"] = " ".join([str(e) for e in arguments["steps"]])
 
@@ -30,9 +30,6 @@ handle = open("{}/pipeline_settings.txt".format(arguments["root_dir"]), "w")
 for key, value in arguments.items():
     handle.write("{}:{}\n".format(key.upper(), value.replace(" ", ",")))
 handle.close()
-#flags  = r"'{}' {} {} {} {} {} {} {} {} &".format(arguments["database_names"], arguments["spectra"], arguments["params_name"],
-#                                                  arguments["searchgui_path"], arguments["peptideshaker_path"],
-#                                                  arguments["exp_name"], arguments["ps_out"], arguments["settings_dir"], arguments["root_dir"])
 
 print(scripts)
 print("start")

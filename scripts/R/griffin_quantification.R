@@ -6,8 +6,7 @@ reports_dir <- "thesis/genedata/thp1/peptideShaker_out/reports"
 
 metadata_table <- read.table(file = file.path(home, "thesis/genedata/thp1/data/mgf_metadata/PD7502-GDTHP1-A_C1_metadata_table.tsv"),
                              header=T)
-scan <- read.table(file = file.path(home, "thesis/genedata/thp1/data/mgf/scans.txt"))
-precursor <- data.frame(Spectrum.Scan.Number = scan[,1], mz = mz_i[,1], intensity = mz_i[,2])
+identified <- read.table(file = file.path(home, "thesis/genedata/thp1/data/mgf_metadata/PD7502-GDTHP1-A_C1_identified.txt"))
 
 psm_report <- left_join(psm_report, select(precursor, Spectrum.Scan.Number, intensity), by = "Spectrum.Scan.Number")
 
