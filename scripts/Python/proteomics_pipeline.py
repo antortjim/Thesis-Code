@@ -15,7 +15,7 @@ parser.add_argument("--params_name", required=False)
 parser.add_argument("--ps_out", default = "peptideShaker_out")
 parser.add_argument("--settings_dir", default = "settings")
 parser.add_argument("--moff_path", default = "/z/home/aoj/opt/moFF/", help="Path to moFF repository")
-parser.add_argument("--search_engines", default = "comet", help="list of search_engines separated by comma. Name must be identical to tag used in SearchGUI. Ex comet,msgf,xtandem")
+parser.add_argument("--search_engines", default = "comet", help="list of search_engines separated by space. Name must be identical to tag used in SearchGUI. Ex comet msgf xtandem")
 parser.add_argument("--msgfplus_path", default = "/z/home/aoj/opt/MSGFPlus/MSGFPlus.jar")
 parser.add_argument("--root_dir", default = "/z/home/aoj/thesis/genedata/")
 
@@ -30,7 +30,7 @@ arguments["steps"] = [int(x) for x in arguments["steps"].split(" ")]
 if arguments["params_name"] is None:
     arguments["params_name"] = arguments["exp_name"]
 
-arguments["searchgui_engines"]["-{} 1" for e in arguments["search_engines"]]
+arguments["searchgui_engines"] = " ".join(["-{} 1".format(e) for e in arguments["search_engines"].split(" ")])
 
 scripts = scripts[arguments["steps"]]
 arguments["steps"] = " ".join([str(e) for e in arguments["steps"]])
@@ -47,7 +47,7 @@ for scr in scripts:
     if scr == "call_peptide_shaker.sh":
         continue
     else:
-        cmd = r"nohup {}/scripts/bash/{} > {}/{}/{}_{}.out".format(arguments["root_dir"], scr, arguments["root_dir"], arguments["exp_name"], arguments["exp_name"], scr)
+        cmd = r"nohup {}/scripts/bash/{} > {}/{}/{}__{}.out".format(arguments["root_dir"], scr, arguments["root_dir"], arguments["exp_name"], arguments["exp_name"], scr)
         print(cmd)
         subprocess.check_call(cmd, shell=True)
 print("Pipeline ended")

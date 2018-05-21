@@ -32,8 +32,6 @@ fi
 echo $CONDITION_NAME
 echo $REPLICATE
 
-#IDENTIFICATION_FILES=$(find `pwd`/$SEARCHGUI_OUT -maxdepth 1 | grep "$SAMPLE_NAME" | grep -v -e "\.mgf$" )
-#IDENTIFICATION_FILES_STRING="$(echo $IDENTIFICATION_FILES | sed 's/ /, /g')"
 MZID=$ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT/$SAMPLE_NAME.msgf.mzid
 COMET_OUTPUT=$ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT/$SAMPLE_NAME.comet.pep.xml
 
@@ -42,9 +40,6 @@ then
   echo "Calling peptideshaker"
 
   #echo $ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT/identification_files_$SAMPLE_NAME.txt
-
-  find $ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT -maxdepth 1 | grep "${SAMPLE_NAME}_prefix" | grep -v -e "\.mgf$"  > $ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT/identification_files_$SAMPLE_NAME.txt
-  zip -j $ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT/identification_files_$SAMPLE_NAME.zip -@ < $ROOT_DIR/$EXP_NAME/$SEARCHGUI_OUT/identification_files_$SAMPLE_NAME.txt
 
   echo $FILEPATH
 
