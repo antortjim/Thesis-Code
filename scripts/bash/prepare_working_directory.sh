@@ -8,4 +8,5 @@ mkdir searchgui_out
 mkdir old_searches
 mkdir settings
 mkdir databases
-
+mkdir output_moff
+mkdir log
