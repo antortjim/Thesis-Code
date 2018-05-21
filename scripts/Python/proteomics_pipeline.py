@@ -16,6 +16,7 @@ parser.add_argument("--ps_out", default = "peptideShaker_out")
 parser.add_argument("--settings_dir", default = "settings")
 parser.add_argument("--moff_path", default = "/z/home/aoj/opt/moFF/", help="Path to moFF repository")
 parser.add_argument("--search_engines", default = "comet", help="list of search_engines separated by comma. Name must be identical to tag used in SearchGUI. Ex comet,msgf,xtandem")
+parser.add_argument("--msgfplus_path", default = "/z/home/aoj/opt/MSGFPlus/MSGFPlus.jar")
 parser.add_argument("--root_dir", default = "/z/home/aoj/thesis/genedata/")
 
 scripts = np.array(["check_flags.sh", "create_decoy_database.sh", "create_settings_file.sh", "search_mgf.sh", "call_peptide_shaker.sh", "fetch_mgf_metadata.sh", "call_moFF.sh"])
