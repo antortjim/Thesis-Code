@@ -7,12 +7,19 @@ echo $NSETTINGS
 i=0
 while [ $i -le $NSETTINGS ]
 do
+  echo $i
+  echo $(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)
+  echo $(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)
   eval "$(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)=$(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)"
   ((i++))
 done
+
+echo $SEARCH_ENGINES
+
 IFS=', ' read -r -a DATABASE_NAMES <<< "$DATABASE_NAMES"
 IFS=', ' read -r -a SEARCH_ENGINES <<< "$SEARCH_ENGINES"
 
+echo ${SEARCH_ENGINES[*]}
 # From https://stackoverflow.com/questions/3685970/check-if-a-bash-array-contains-a-value
 containsElement () {
   local e match="$1"

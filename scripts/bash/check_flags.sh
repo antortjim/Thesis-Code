@@ -9,25 +9,14 @@
 #EXP_NAME=${6:-thp1}
 #PS_OUT=${7:-peptideShaker_out}
 #SETTINGS_DIR=${8:-settings}
+
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
 
-echo DATABASE_NAMES
-echo ${DATABASE_NAMES[*]}
-echo SPECTRA
-echo $SPECTRA
-echo PARAMS_NAME
-echo $PARAMS_NAME
-echo SEARCHGUI_PATH
-echo $SEARCHGUI_PATH
-echo PEPTIDESHAKER_PATH
-echo $PEPTIDESHAKER_PATH
-echo EXP_NAME
-echo $EXP_NAME
-echo PS_OUT
-echo $PS_OUT
-echo SETTINGS_DIR
-echo $SETTINGS_DIR
-echo ROOT_DIR
-echo $ROOT_DIR
+#!/bin/bash
+while IFS='' read -r line || [[ -n "$line" ]]; do
+    echo $line
+done < $ROOT_DIR/pipeline_settings.txt
+
+
 

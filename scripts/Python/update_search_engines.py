@@ -15,6 +15,7 @@ extensions = {"msgf": "msgf.mzid", "comet": "comet.pep.xml", "xtandem": "t.xml"}
 if os.path.isdir(arguments["searchgui_out"]):
     search_engine_output = os.path.join(arguments["searchgui_out"], arguments["sample_name"] + "."+ extensions[arguments["se"]])
 #    import ipdb; ipdb.set_trace()
+
     if os.path.exists(search_engine_output):
         updated_list.remove(arguments["se"])
 
