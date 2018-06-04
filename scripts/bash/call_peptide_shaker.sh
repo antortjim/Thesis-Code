@@ -94,7 +94,6 @@ then
 
    # Generate custom report including MS1 intensity
    echo "`date` call_peptide_shaker.sh Creating custom_PSM_report for sample $SAMPLE_NAME" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-   Rscript $ROOT_DIR/scripts/R/custom_PSM_report.R $ROOT_DIR $EXP_NAME $SAMPLE_NAME
    ln ${SAMPLE_NAME}_Default_PSM_Report.txt ../PSM_reports/${SAMPLE_NAME}_Default_PSM_Report.txt
    
    # #########################################

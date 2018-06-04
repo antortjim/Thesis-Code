@@ -1,5 +1,7 @@
 #! /bin/bash
 
+source activate moFF
+
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
 
@@ -37,9 +39,13 @@ do
     echo $SAMPLE_REPORTS
     echo $SAMPLE_MZML
     echo "`date` call_moFF.sh Calling moFF match between runs module" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-    echo "`date` call_moFF.sh python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/custom_reports --sample "$SAMPLE_NAMES" --tol 10 --ext txt --log_file_name mbr.log" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+    echo "`date` call_moFF.sh python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/PSM_reports --sample "$SAMPLE_NAMES" --ext txt --log_file_name mbr.log" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+    python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/PSM_reports --sample "$SAMPLE_NAMES" --ext txt --log_file_name mbr.log
   else
     echo "`date` call_moFF.sh Omitting sample $S" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
   fi
 done
+
+source deactivate moFF
+Rscript --vanilla $ROOT_DIR/scripts/R/custom_PSM_report.R --root_dir $ROOT_DIR --exp_name $EXP_NAME --sample_names $SAMPLE_NAMES
 
