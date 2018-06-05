@@ -1,13 +1,14 @@
 #! /bin/bash
 
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
+
  
 ########################################
 ## Search!
 ########################################
 
-FILTER=$1
+FILTER=$3
 
 if [ ! -z "$(ls -A $ROOT_DIR/$EXP_NAME/$SPECTRA)" ]
 then

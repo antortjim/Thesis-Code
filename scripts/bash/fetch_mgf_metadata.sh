@@ -3,7 +3,7 @@
 MGF_PATH=$1
 # Absolute path this script is in, thus /home/user/bin
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 
 echo $MGF_PATH
 SEARCH_OUTPUT_DIR=$ROOT_DIR/$EXP_NAME/searchgui_out/

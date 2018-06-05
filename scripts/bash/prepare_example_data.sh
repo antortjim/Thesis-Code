@@ -1,8 +1,8 @@
 #! /bin/bash
 
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
-$SOFT_DIR/load_flags.sh --source-only
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
+$SOFT_DIR/load_flags.sh $1 $2 --source-only
 
 
 rm $ROOT_DIR/$EXP_NAME/data/mgf_input/*

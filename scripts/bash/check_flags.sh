@@ -11,12 +11,11 @@
 #SETTINGS_DIR=${8:-settings}
 
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 
-#!/bin/bash
 while IFS='' read -r line || [[ -n "$line" ]]; do
     echo $line
-done < $ROOT_DIR/pipeline_settings.txt
+done < $ROOT_DIR/$EXP_NAME/pipeline_settings.txt
 
 
 

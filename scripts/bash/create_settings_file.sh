@@ -1,7 +1,7 @@
 #! /bin/bash
 
-SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
+SOFT_DIR=$1/scripts/bash
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 
 #########################################
 #Create search settings file
@@ -18,8 +18,9 @@ if [ ! -f $ROOT_DIR/$SETTINGS_DIR/$PARAMS_NAME.par ]
 then
   echo "Preparing settings file"
 
-  java -cp $SEARCHGUI_PATH eu.isas.searchgui.cmd.IdentificationParametersCLI -out $ROOT_DIR/$EXP_NAME/$SETTINGS_DIR/$PARAMS_NAME \
-    -db $ROOT_DIR/$EXP_NAME/databases/all_concatenated_target_decoy.fasta \
+  DB=$ROOT_DIR/$EXP_NAME/databases/all_concatenated_target_decoy.fasta
+  CMD="java -cp $SEARCHGUI_PATH eu.isas.searchgui.cmd.IdentificationParametersCLI -out $ROOT_DIR/$EXP_NAME/$SETTINGS_DIR/$PARAMS_NAME \
+    -db $DB \
     -enzyme 'Trypsin' \
     -specificity '1' \
     -fixed_mods 'Carbamidomethylation of C' \
@@ -28,5 +29,7 @@ then
     -prec_tol '10' \
     -frag_tol '0.5'\
     -fi 'b' \
-    -ri 'y'
+    -ri 'y'"
+  echo "`date` create_settings_file.sh Calling $CMD" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  eval $CMD
 fi

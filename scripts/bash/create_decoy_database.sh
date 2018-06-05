@@ -1,8 +1,7 @@
 #! /bin/bash
 
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
-
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 
 #######################################
 ## Prepare database: create decoy
@@ -26,5 +25,7 @@ then
       fi
   done
 
-java -cp $SEARCHGUI_PATH eu.isas.searchgui.cmd.FastaCLI -in $ROOT_DIR/$EXP_NAME/databases/all.fasta -decoy
+  CMD="java -cp $SEARCHGUI_PATH eu.isas.searchgui.cmd.FastaCLI -in $ROOT_DIR/$EXP_NAME/databases/all.fasta -decoy"
+  echo "`date` create_decoy_database.sh: Running $CMD" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  #eval $CMD
 fi

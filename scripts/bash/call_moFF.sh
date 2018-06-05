@@ -3,21 +3,24 @@
 source activate moFF
 
 SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SOFT_DIR/load_flags.sh > /dev/null 2>&1
+source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 
 ######################################################################
 ## Perform match between runs and feature extraction using moFF
 #######################################################################
 EXP_DESIGN=$ROOT_DIR/$EXP_NAME/data/experimental_design.tsv
 #echo $EXP_DESIGN
-SAMPLE_INDEX=$(sed -n $'1s/\t/\\\n/gp' $EXP_DESIGN | grep -nx 'sample' | cut -f 1 -d:)
+SAMPLE_INDEX=5
+#SAMPLE_INDEX=$(sed -n $'1s/\t/\\\n/gp' $EXP_DESIGN | grep -nx 'sample' | cut -f 1 -d:)
 #FILE_NAME_INDEX=$(sed -n $'1s/\t/\\\n/gp' $EXP_DESIGN | grep -nx 'file' | cut -f 1 -d:)
 
 #awk '{print $5}' $EXP_DESIGN | tail -n +2 
 
-echo "`date` call_moFF.sh SAMPLE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-echo "`date` call_moFF.sh FILE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+#echo "`date` call_moFF.sh SAMPLE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+#echo "`date` call_moFF.sh FILE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
 SAMPLES=$(cut -f $SAMPLE_INDEX -d$'\t' $EXP_DESIGN | tail -n +2 | sort | uniq)
+echo "`date` call_moFF.sh SAMPLES: ${SAMPLES[*]}" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+#echo "`date` call_moFF.sh SAMPLE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
 #SAMPLE_NAMES=$(cut -f $FILE_NAME_INDEX -d$'\t' $EXP_DESIGN | tail -n +2)
 
 
@@ -39,13 +42,18 @@ do
     echo $SAMPLE_REPORTS
     echo $SAMPLE_MZML
     echo "`date` call_moFF.sh Calling moFF match between runs module" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-    echo "`date` call_moFF.sh python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/PSM_reports --sample "$SAMPLE_NAMES" --ext txt --log_file_name mbr.log" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-    python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/PSM_reports --sample "$SAMPLE_NAMES" --ext txt --log_file_name mbr.log
+    CMD='python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/PSM_reports --sample "$SAMPLE_NAMES" --ext txt --log_file_name MBR'
+    echo "`date` call_moFF.sh $CMD" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+    eval $CMD
+
   else
     echo "`date` call_moFF.sh Omitting sample $S" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
   fi
+
+  source deactivate moFF
+  Rscript --vanilla $ROOT_DIR/scripts/R/custom_PSM_report.R --root_dir $ROOT_DIR --exp_name $EXP_NAME --sample_names ${SAMPLE_NAMES[*]}
+  source activate moFF
+
 done
 
-source deactivate moFF
-Rscript --vanilla $ROOT_DIR/scripts/R/custom_PSM_report.R --root_dir $ROOT_DIR --exp_name $EXP_NAME --sample_names $SAMPLE_NAMES
 

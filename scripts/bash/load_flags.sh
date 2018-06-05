@@ -1,25 +1,25 @@
 #! /bin/bash
 
-SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PIPELINE_SETTINGS="$SOFT_DIR/../../pipeline_settings.txt"
+ROOT_DIR=$1
+EXP_NAME=$2
+#SOFT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SOFT_DIR=$ROOT_DIR/scripts/bash
+PIPELINE_SETTINGS="$ROOT_DIR/$EXP_NAME/pipeline_settings.txt"
 NSETTINGS=$(wc -l $PIPELINE_SETTINGS | awk '{print $1}')
 echo $NSETTINGS
 i=0
 while [ $i -le $NSETTINGS ]
 do
-  echo $i
-  echo $(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)
-  echo $(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)
-  eval "$(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)=$(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)"
+  CMD="$(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)=$(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)"
+  echo $CMD
+  eval $CMD
   ((i++))
 done
 
-echo $SEARCH_ENGINES
-
 IFS=', ' read -r -a DATABASE_NAMES <<< "$DATABASE_NAMES"
 IFS=', ' read -r -a SEARCH_ENGINES <<< "$SEARCH_ENGINES"
-
 echo ${SEARCH_ENGINES[*]}
+
 # From https://stackoverflow.com/questions/3685970/check-if-a-bash-array-contains-a-value
 containsElement () {
   local e match="$1"
@@ -39,6 +39,6 @@ catNOccurrences () {
 main() {
   echo "Load flags sourced"
 }
-if [ "${1}" != "--source-only" ]; then
+if [ "${3}" != "--source-only" ]; then
     main "${@}"
 fi
