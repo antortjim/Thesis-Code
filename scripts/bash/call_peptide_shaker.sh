@@ -74,9 +74,20 @@ else
 fi
 if [ -f "$ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.cpsx" ]
 then
-   # #########################################
-   # ## Report 
-   # #########################################
+
+   ############################################################################
+   ## Export to Mzid (MZIdentML) for easier connection to other tools
+   ############################################################################
+
+   java -cp $PEPTIDESHAKER_PATH eu.isas.peptideshaker.cmd.MzidCLI \
+     -contact_first_name Antonio -contact_last_name Ortega -contact_email ntoniohu@gmail.com -contact_address "Gyngemose Parkvej 54B" \
+     -organization_name "University of Copenhagen" -organization_email rnq313@alumni.ku.dk -organization_address "Ole Maaløes Vej 5, 2200 København" \
+     -in "$ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.cpsx" \
+     -output_file "$ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.mzid"
+
+   #########################################
+   ## Report 
+   #########################################
     
    echo "`date` call_peptide_shaker.sh Reporting for sample $SAMPLE_NAME" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
    java -cp $PEPTIDESHAKER_PATH eu.isas.peptideshaker.cmd.ReportCLI -in $ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.cpsx \
