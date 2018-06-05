@@ -101,7 +101,7 @@ then
     echo "`date` search_all_mgf.sh searchGUI finished for sample $SAMPLE_NAME with engines ${SEARCH_ENGINES[*]}" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
     echo "`date` search_all_mgf.sh Launching call PeptideShaker" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
     echo "`date` search_all_mgf.sh with call $SOFT_DIR/call_peptide_shaker.sh $ROOT_DIR/$EXP_NAME/$SPECTRA/$SPECTRUM_FILE $i $SEARCHGUI_OUT > $ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.out" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-    $SOFT_DIR/call_peptide_shaker.sh $ROOT_DIR/$EXP_NAME/$SPECTRA/$SPECTRUM_FILE $i $SEARCHGUI_OUT > $ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.out
+    $SOFT_DIR/call_peptide_shaker.sh $ROOT_DIR $EXP_NAME $ROOT_DIR/$EXP_NAME/$SPECTRA/$SPECTRUM_FILE $i $SEARCHGUI_OUT > $ROOT_DIR/$EXP_NAME/$PS_OUT/$SAMPLE_NAME.out
 
     echo "`date` search_all_mgf.sh Peptide-Shaker finished for sample $SAMPLE_NAME" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
     ((i++))

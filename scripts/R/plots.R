@@ -4,6 +4,8 @@ source("settings.R")
 ## Read data and save available conditions
 #######################################################################################
 data <- read.table(file = file.path(data_dir, "dataset.tsv"), stringsAsFactors = F, header = T, row.names = NULL)
+data %>% group_by(condition1, condition2, rep) %>% summarise(count = n())
+
 condition_fields <- grep(pattern = "condition", colnames(data), value = T)
 conditions <- data[, condition_fields]
 

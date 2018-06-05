@@ -10,7 +10,10 @@ echo $NSETTINGS
 i=0
 while [ $i -le $NSETTINGS ]
 do
-  CMD="$(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)=$(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)"
+  KEY="$(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)"
+  VALUE="$(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)"
+  CMD=$KEY="$VALUE"
+  #CMD="$(head -$i $PIPELINE_SETTINGS | tail -n 1 |cut -f1 -d:)=$(head -$i $PIPELINE_SETTINGS | tail -n 1 | cut -f2 -d:)"
   echo $CMD
   eval $CMD
   ((i++))

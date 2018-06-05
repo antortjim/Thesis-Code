@@ -1,15 +1,26 @@
 library("dplyr")
+library("optparse")
+library("ggplot2")
 
-# system("head -1 fractions_export.txt | sed 's/#/Number_/g' > fractions_export_clean.txt ")
-# system("tail -n +2 fractions_export.txt  | sed \"s/'/prime/g\" >> fractions_export_clean.txt")
+option_list = list(
+  make_option(c("--root_dir"), type="character", default="//hest/aoj//thesis/genedata"),
+  make_option(c("--exp_name"), type="character", default="thp1"),
+  make_option(c("--input_dir"), type="character"),
+  make_option(c("--output_dir"), type="character")
+)
 
-home <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
-reports_dir <- "thesis/genedata/thp1/peptideShaker_out/reports"
+opt_parser = OptionParser(option_list=option_list)
+opt = parse_args(opt_parser)
 
-# quantification_report <- read.table(file.path(home, reports_dir), "Quantification.txt")
-quantification_report <- read.table("C:/Users/aoj/OneDrive - Novozymes A S/Thesis/PeptideShaker/Quantification.txt",
-                                    sep = "\t", header=T)
+root_dir <- opt$root_dir
+exp_name <- opt$exp_name
 
+input_dir <- ifelse("input_dir" %in% names(opt), opt$input_dir, file.path(root_dir, exp_name, "peptideShaker_out/PSM_reports"))
+
+PSM_report <- read.table(file = file.path(input_dir, "PD7505-GDTHP1-A_C2_Default_PSM_Report.txt"), header = T, sep = "\t", stringsAsFactors = F)
+match_report <- read.table(file = file.path(input_dir, "mbr_output", "PD7505-GDTHP1-A_C2_Default_PSM_Report_match.txt"), header = T, sep = "\t", stringsAsFactors = F)
+
+match_report[c(tail(which(match_report$matched == 0)), head(which(match_report$matched == 1))), ] %>% View
 
 
 protein_report <- read.table(file.path(home, reports_dir), "test_experiment_sample_1_1_Default_Protein_Report_clean.txt"),

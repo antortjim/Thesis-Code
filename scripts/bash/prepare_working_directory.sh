@@ -2,14 +2,14 @@
 
 EXP_NAME=$1
 cd $EXP_NAME
-mkdir peptideShaker_out
-mkdir peptideShaker_out/reports
-mkdir peptideShaker_out/PSM_reports
-mkdir peptideShaker_out/custom_reports
-#mkdir searchgui_out
-#mkdir old_searches
-mkdir settings
-mkdir databases
-mkdir output_moff
-mkdir log
-mkdir quantification
+mkdir -p peptideShaker_out
+mkdir -p peptideShaker_out/reports
+mkdir -p peptideShaker_out/PSM_reports
+mkdir -p peptideShaker_out/custom_reports
+#mkdir -p  searchgui_out
+#mkdir -p  old_searches
+mkdir -p settings
+mkdir -p databases
+mkdir -p output_moff
+mkdir -p log
+mkdir -p quantification

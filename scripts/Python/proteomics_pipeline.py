@@ -3,10 +3,13 @@ import numpy as np
 import argparse
 from argparse import RawTextHelpFormatter
 
-
 parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
-
 parser.add_argument("--database_names", default = "Homo_sapiens NZ_Contaminants")
+parser.add_argument("--fixed_mods", default = 'Carbamidomethylation_of_C', help = "String of modifications separated by comma underscore")
+parser.add_argument("--variable_mods", default = 'Oxidation_of_M,_Deamidation_of_N,_Deamidation_of_Q', help = "String of modifications separated by comma underscore")
+parser.add_argument("--enzyme", default = 'Trypsin')
+parser.add_argument("--enzyme_specificity", default = '1')
+parser.add_argument("--nz_db", default = 1)
 parser.add_argument("--spectra", default = "data/mgf")
 #parser.add_argument("--spectra", default = "data/mgf_input")
 parser.add_argument("--filter", default="PD7505", required=False)
@@ -40,18 +43,25 @@ arguments["searchgui_engines"] = " ".join(["-{} 1".format(e) for e in arguments[
 scripts = scripts[arguments["steps"]]
 arguments["steps"] = " ".join([str(e) for e in arguments["steps"]])
 
-handle = open("{}/pipeline_settings.txt".format(arguments["root_dir"]), "w")
+handle = open("{}/{}/pipeline_settings.txt".format(arguments["root_dir"], arguments["exp_name"]), "w")
 for key, value in arguments.items():
-    handle.write("{}:{}\n".format(key.upper(), value.replace(" ", ",")))
+    if key not in ["variable_mods", "fixed_mods"]:
+      try:
+          handle.write("{}:{}\n".format(key.upper(), value.replace(" ", ",")))
+      except:
+          print(key, value)
+    else:
+      handle.write("{}:{}\n".format(key.upper(), value))
+    
 handle.close()
 
 print(scripts)
 print("Starting pipeline")
-flags = ""
+flags = "{} {}".format(arguments["root_dir"], arguments["exp_name"])
 for scr in scripts:
     
     if scr == "search_all_mgf.sh":
-        flags = arguments["filter"]
+        flags += " {}".format(arguments["filter"])
 
     cmd = r"nohup {}/scripts/bash/{} {} > {}/{}/{}__{}.out".format(arguments["root_dir"], scr, flags, arguments["root_dir"], arguments["exp_name"], arguments["exp_name"], scr)
     print(cmd)

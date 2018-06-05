@@ -14,6 +14,13 @@ source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 # prec_tol in ppm
 # frag_tol in Da
 
+echo "`date` create_settings_file.sh Fixed modifications: $FIXED_MODS" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+echo "`date` create_settings_file.sh Variable modifications: $VARIABLE_MODS" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+FIXED_MODS=$(echo $FIXED_MODS | tr "_" " ")
+VARIABLE_MODS=$(echo $VARIABLE_MODS | tr "_" " ")
+echo "`date` create_settings_file.sh Fixed modifications: $FIXED_MODS" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+echo "`date` create_settings_file.sh Variable modifications: $VARIABLE_MODS" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+
 if [ ! -f $ROOT_DIR/$SETTINGS_DIR/$PARAMS_NAME.par ]
 then
   echo "Preparing settings file"
@@ -21,10 +28,10 @@ then
   DB=$ROOT_DIR/$EXP_NAME/databases/all_concatenated_target_decoy.fasta
   CMD="java -cp $SEARCHGUI_PATH eu.isas.searchgui.cmd.IdentificationParametersCLI -out $ROOT_DIR/$EXP_NAME/$SETTINGS_DIR/$PARAMS_NAME \
     -db $DB \
-    -enzyme 'Trypsin' \
-    -specificity '1' \
-    -fixed_mods 'Carbamidomethylation of C' \
-    -variable_mods 'Oxidation of M, Deamidation of N, Deamidation of Q' \
+    -enzyme $ENZYME \
+    -specificity $ENZYME_SPECIFICITY \
+    -fixed_mods \"$FIXED_MODS\" \
+    -variable_mods \"$VARIABLE_MODS\" \
     -mc '2' \
     -prec_tol '10' \
     -frag_tol '0.5'\

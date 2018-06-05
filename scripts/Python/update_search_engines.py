@@ -10,7 +10,7 @@ parser.add_argument("--sample_name")
 args = parser.parse_args()
 arguments = vars(args)
 updated_list = arguments["updated_list"].split(" ")
-extensions = {"msgf": "msgf.mzid", "comet": "comet.pep.xml", "xtandem": "t.xml"}
+extensions = {"msgf": "msgf.mzid", "comet": "comet.pep.xml", "xtandem": "t.xml", "andromeda": "res"}
 
 if os.path.isdir(arguments["searchgui_out"]):
     search_engine_output = os.path.join(arguments["searchgui_out"], arguments["sample_name"] + "."+ extensions[arguments["se"]])

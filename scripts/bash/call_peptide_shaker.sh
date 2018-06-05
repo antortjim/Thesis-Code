@@ -8,9 +8,9 @@ source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 #########################################
 
 EXPERIMENTAL_DESIGN="$ROOT_DIR/$EXP_NAME/data/experimental_design.tsv"
-SPECTRUM_FILE=$1
-i=$2
-SEARCHGUI_OUT=$3
+SPECTRUM_FILE=$3
+i=$4
+SEARCHGUI_OUT=$5
 
 #echo $SPECTRUM_FILE
 SAMPLE_ID="sample_$i"

@@ -8,7 +8,7 @@ library("stringr")
 
 option_list = list(
   make_option(c("--root_dir"), type="character", default="//hest/aoj//thesis/genedata"),
-  make_option(c("--exp_name"), type="character", default="thp1_test")
+  make_option(c("--exp_name"), type="character", default="thp1")
 )
 
 opt_parser = OptionParser(option_list=option_list)
@@ -28,6 +28,7 @@ i <- 1
 sample_names <- str_match(string = PSM_reports, pattern = "(.*)_Custom_PSM_Report.txt")[,2]
 
 for (PSM_rep in PSM_reports) {
+  print(i)
   sample_name <- sample_names[i]
   
   pept <- read.table(file = file.path(custom_reports_dir, PSM_rep),
@@ -52,26 +53,31 @@ for (PSM_rep in PSM_reports) {
   i <- i + 1
 }
 
+peptides2 <- peptides
 
 pp <- peptides %>% select(-Modified.Sequence) %>%
   unite(temp, Protein.s.:Measured.Charge)
 
 pp$temp %>% duplicated
-pp <- pp %>% spread(sample_name, ms1_intensity)
+pp <- pp %>% group_by(temp, sample_name) %>% summarise(ms1_intensity = sum(ms1_intensity))
+intensities <- pp %>% spread(sample_name, ms1_intensity)
+pp <- intensities
+
+intensities <- intensities[,-1]
+combinations <- combn(x = colnames(intensities), m = 2)
+combinations_names <- apply(X = combinations, MARGIN = 2, FUN = function(x) paste(x, collapse="/"))
 
 temp <- pp$temp %>% strsplit(x = ., split = "_") %>% do.call(what = rbind, args = .)
 
 colnames(temp) <- peptides %>% select(-Modified.Sequence) %>% select(Protein.s.:Measured.Charge) %>% colnames
-pp <- cbind(temp, select(pp, -temp))
+
+pp <- cbind(temp, pp[,-(colnames(pp) == "temp")])
 rm(temp)
+
+
 peptides <- pp
 colnames(peptides)[colnames(peptides) == "Protein.s."] <- "Protein.IDs"
-Protein.IDs <- peptides$Protein.IDs %>% as.character
-
-intensities <- peptides[,sample_names]
-combinations <- combn(x = colnames(intensities), m = 2)
-combinations_names <- apply(X = combinations, MARGIN = 2, FUN = function(x) paste(x, collapse="/"))
-
+Protein.IDs <- peptides$Protein.IDs %>% as.character %>% unique
 
 ############################################################################################
 ## Export to tsv files
@@ -82,3 +88,4 @@ write.table(x = combinations, file = file.path(output_dir, "combinations.tsv"), 
 write.table(x = combinations_names, file = file.path(output_dir, "combinations_names.tsv"), sep = "\t", row.names = F, col.names = F, quote = F)
 write.table(x = peptides, file = file.path(output_dir, "peptides.tsv"), sep = "\t", row.names = F, col.names = T, quote = F)
 write.table(x = Protein.IDs, file = file.path(output_dir, "Protein.IDs.tsv"), sep = "\t", row.names = F, col.names = F, quote = F)
+  
