@@ -13,3 +13,4 @@ mkdir -p databases
 mkdir -p output_moff
 mkdir -p log
 mkdir -p quantification
+mkdir -p genedata_processed

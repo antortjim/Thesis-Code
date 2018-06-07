@@ -1,68 +1,116 @@
-source("settings.R")
+library("dplyr")
+library("optparse")
+library("ggplot2")
+
+home_dir <- ifelse(Sys.info()["sysname"] == "Linux", "/z/home/aoj", "//hest/aoj")
+option_list = list(
+  make_option(c("--root_dir"), type="character", default=file.path(home_dir, "/thesis/genedata")),
+  make_option(c("--exp_name"), type="character", default="thp1"),
+  make_option(c("--input_dir"), type="character"),
+  make_option(c("--output_dir"), type="character")
+)
+
+opt_parser = OptionParser(option_list=option_list)
+opt = parse_args(opt_parser)
+
+root_dir <- opt$root_dir
+exp_name <- opt$exp_name
+output_dir <- file.path(root_dir, exp_name, "data", "genedata_processed")
+
+#######################################################################################
+## Custom function
+#######################################################################################
+
+ggsave2 <- function(filename, plot) {
+  print(filename)
+  return(ggsave(filename = file.path(output_dir, filename), plot = plot))
+}
+simpleCap <- function(x) {
+  s <- strsplit(x, " ")[[1]]
+  paste(toupper(substring(s, 1,1)), substring(s, 2),
+        sep="", collapse=" ")
+}
+
+
+# pipeline_settings <- read.table(file = file.path(root_dir, exp_name, "pipeline_settings.txt"), sep = ":")
+
+#######################################################################################
+## Analysis parameters
+#######################################################################################
+
+dep_criteria <- c("BOTH")
+palette <- rep("red", 4)
+
+
+log.fold.change.threshold <- 1
+p.value.threshold <- -log10(0.05)
+correlation.threshold <- 0.96
+#excluded_proteins <- "P33BJB"
+analysis_conditions <- c("Experiment", "Fraction")
+
+
 
 #######################################################################################
 ## Read data and save available conditions
 #######################################################################################
-data <- read.table(file = file.path(data_dir, "dataset.tsv"), stringsAsFactors = F, header = T, row.names = NULL)
-data %>% group_by(condition1, condition2, rep) %>% summarise(count = n())
 
-condition_fields <- grep(pattern = "condition", colnames(data), value = T)
-conditions <- data[, condition_fields]
-
-if(!"condition" %in% colnames(data)) {
-data$condition <- apply(data[, condition_fields], 1, function(x) paste(x, collapse = "_"))
-}
-
-for (i in 1:length(analysis_conditions)) {
-  data <- data[data[, names(analysis_conditions)[i]] %in% analysis_conditions[[names(analysis_conditions)[i]]],]
-}
-kept_files <- data$file %>% unique
+data <- read.table(file = file.path(output_dir, "dataset.tsv"), stringsAsFactors = F, header = T, row.names = NULL)
+data %>% group_by_(analysis_conditions, "Replicate") %>% summarise(count = n())
 
 #######################################################################################
-## Historam of the counts of protein id occurrrences in replicates across conditions
+##  COMPLETE
 #######################################################################################
-
 
 counts_condition <- data %>%
-  group_by(condition, name) %>% summarise(count = sum(!is.na(amount)))
+  group_by_(analysis_conditions, "Name") %>% summarise(count = sum(!is.na(Quantification)))
+
+counts_condition
+
 p <- ggplot(counts_condition ,
-       aes(x = count, fill=condition)) + geom_histogram(position="dodge") +
-  scale_x_continuous(breaks = 0:max(counts_condition$count)) +
-  labs(x="Available in # replicates", y = "Protein count")
-ggsave2(filename = "counts_condition.png", plot = p)
+       aes(x = Name, fill=Experiment, y = count)) + geom_bar(stat = "identity")
+  # scale_x_continuous(breaks = 0:max(counts_condition$count)) +
+p
+
+ggsave2(filename = "Quantification_per_sample", plot = p)
 
 # data <- data %>% filter(name %in% (data %>% group_by(condition, name) %>%
 #                                      summarise(count = n()) %>%
 #                                      filter(count > 4) %>% .$name))
 
-# data[is.na(data$amount),"amount"] <- 0
+# data[is.na(data$Quantification),"Quantification"] <- 0
 
 #######################################################################################
-## Boxplots of the protein amount distributions across samples
+## Boxplots of the protein Quantification distributions across samples
 #######################################################################################
 
-p <- ggplot(data %>% filter(!(name %in% excluded_proteins)),
-       aes(x = rep, y = log(amount), fill=condition, group=rep)) +
-  geom_boxplot() +
-  facet_wrap(~condition) + guides(fill = F)
+p <- ggplot(data,
+       aes(x = Replicate, y = Quantification, fill=Experiment, group=Replicate)) +
+  geom_boxplot() + facet_wrap(~Experiment, nrow = 1)
 p
-ggsave2(filename = "amount_boxplots.png", plot = p)
 
-p <- ggplot(data %>% filter(!(name %in% excluded_proteins)), aes(x = condition, y = log(amount))) +
-  geom_boxplot()
-ggsave2(filename = "amounts_condition_boxplot.png", plot = p)
+## ADD NUMBER OF PROTEINS FOR EACH SAMPLE
 
-p <- ggplot(data %>% filter(!(name %in% excluded_proteins)), aes(x = amount, col = condition)) +
+ggsave2(filename = "Quantification_boxplots.png", plot = p)
+
+
+
+# p <- ggplot(data %>% filter(!(Name %in% excluded_proteins)), aes(x = Experiment, y = log(Quantification))) +
+#   geom_boxplot()
+# p
+# ggsave2(filename = "Quantifications_condition_boxplot.png", plot = p)
+
+p <- ggplot(data %>% filter(!(Protein.ID %in% excluded_proteins)), aes(x = Quantification, col = Experiment)) +
   geom_density(alpha = 0.5) + guides(col=F)
-ggsave2(filename = "amount_density.png", plot = p)
+p
+ggsave2(filename = "Quantification_density.png", plot = p)
 
 
 
 #######################################################################################
-## Scatterplot of the proteins amount across conditions (one datapoint per replicate)
+## Scatterplot of the proteins Quantification across conditions (one datapoint per replicate)
 #######################################################################################
 
-ggplot(data %>% filter(!(name %in% excluded_proteins)), aes(x = name, y = amount, col=condition)) +
+ggplot(data %>% filter(!(name %in% excluded_proteins)), aes(x = name, y = Quantification, col=Experiment)) +
   geom_point() +
   facet_wrap(~condition) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
@@ -73,9 +121,9 @@ ggplot(data %>% filter(!(name %in% excluded_proteins)), aes(x = name, y = amount
 
 cv_data <- data %>%
   group_by(condition, name) %>%
-  summarise(cv = sd(amount, na.rm = T) / mean(amount, na.rm = T),
-            mu = mean(amount, na.rm=T),
-            sigma = sd(amount, na.rm=T))
+  summarise(cv = sd(Quantification, na.rm = T) / mean(Quantification, na.rm = T),
+            mu = mean(Quantification, na.rm=T),
+            sigma = sd(Quantification, na.rm=T))
 
 ggplot(cv_data, aes(x = mu, y = cv)) + geom_point() + facet_wrap(~condition)
 
@@ -95,13 +143,13 @@ quant_count <- data %>% na.omit %>% group_by(file) %>%
 ggplot(data = quant_count, aes(x = file, y = count)) + geom_bar(stat = "identity") + labs(y = "Protein count")
 
 
-# data %>% filter(file == 1) %>% .$amount
+# data %>% filter(file == 1) %>% .$Quantification
 # 
-# join_data <- inner_join(data[data$file == 1, c("name", "amount")], data[data$file == 2, c("name", "amount")], by = "name")
+# join_data <- inner_join(data[data$file == 1, c("name", "Quantification")], data[data$file == 2, c("name", "Quantification")], by = "name")
 # join_data[join_data %>% is.na] <- 0.1
 # 
-# M <- log2(join_data$amount.x) - log2(join_data$amount.y)
-# A <- 0.5*(log2(join_data$amount.x) + log2(join_data$amount.y))
+# M <- log2(join_data$Quantification.x) - log2(join_data$Quantification.y)
+# A <- 0.5*(log2(join_data$Quantification.x) + log2(join_data$Quantification.y))
 # 
 # plot(A, M, pch = 16)
 
@@ -111,7 +159,7 @@ ggplot(data = quant_count, aes(x = file, y = count)) + geom_bar(stat = "identity
 #######################################################################################
 
 average_dat <- data %>%
-  group_by(condition, name) %>% summarise(average = mean(amount)) %>% arrange(name)
+  group_by(condition, name) %>% summarise(average = mean(Quantification)) %>% arrange(name)
 
 average_dat_spread <- average_dat %>% spread(condition, average)
 # average_dat_spread[complete.cases(average_dat_spread),]
@@ -123,7 +171,7 @@ ggsave2(filename = "logAverage_condition.png", plot = p)
 
 # progression <- data_average %>% as.data.frame %>%
 #   rownames_to_column(var = "condition") %>%
-#   gather(name, amount, -condition)
+#   gather(name, Quantification, -condition)
 
 protein_name <- sample(average_dat$name, 5)
 
@@ -159,8 +207,8 @@ for (j in 1:ncol(comparisons)) {
   i <- 1
   for(protein in protein_names) {
     #print(protein)
-    commercial <- data %>% filter(condition == comparisons[1, j], name == protein) %>% .$amount
-    purified <- data %>% filter(condition == comparisons[2, j], name == protein) %>% .$amount
+    commercial <- data %>% filter(condition == comparisons[1, j], name == protein) %>% .$Quantification
+    purified <- data %>% filter(condition == comparisons[2, j], name == protein) %>% .$Quantification
     p_value <- tryCatch({
       t.test(commercial, purified, alternative = "two.sided") %>% .$p.value},
       error = function(e) {
@@ -228,9 +276,9 @@ gsea <- gprofiler(query = deps, organism = "hsapiens")
 
 quant <- data %>%
   # keep the protein name, its quantity and the file (sample id)
-  select(name, amount, file) %>%
+  select(name, Quantification, file) %>%
   # make the data wide
-  spread(key = name, value = amount) %>%
+  spread(key = name, value = Quantification) %>%
   select(-file) %>%
   as.matrix
 colSums(quant %>% is.na) %>% table
@@ -290,9 +338,9 @@ ggsave2(filename = "cumulative_variance.png", plot = p)
 ## Compute protein co expression network
 #######################################################################################
 
-data_average <- data %>% na.omit %>% select(name, condition, amount) %>%
+data_average <- data %>% na.omit %>% select(name, condition, Quantification) %>%
   group_by(condition, name) %>%
-  summarise(average = mean(amount)) %>%
+  summarise(average = mean(Quantification)) %>%
   spread(name, average) %>%
   column_to_rownames(var="condition") %>%
   as.matrix

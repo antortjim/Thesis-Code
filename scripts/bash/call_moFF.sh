@@ -9,40 +9,55 @@ source $SOFT_DIR/load_flags.sh $1 $2 > /dev/null 2>&1
 ## Perform match between runs and feature extraction using moFF
 #######################################################################
 EXP_DESIGN=$ROOT_DIR/$EXP_NAME/data/experimental_design.tsv
-#echo $EXP_DESIGN
-SAMPLE_INDEX=5
-#SAMPLE_INDEX=$(sed -n $'1s/\t/\\\n/gp' $EXP_DESIGN | grep -nx 'sample' | cut -f 1 -d:)
-#FILE_NAME_INDEX=$(sed -n $'1s/\t/\\\n/gp' $EXP_DESIGN | grep -nx 'file' | cut -f 1 -d:)
-
-#awk '{print $5}' $EXP_DESIGN | tail -n +2 
-
-#echo "`date` call_moFF.sh SAMPLE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-#echo "`date` call_moFF.sh FILE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-SAMPLES=$(cut -f $SAMPLE_INDEX -d$'\t' $EXP_DESIGN | tail -n +2 | sort | uniq)
-echo "`date` call_moFF.sh SAMPLES: ${SAMPLES[*]}" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-#echo "`date` call_moFF.sh SAMPLE_NAME_INDEX: $FILE_NAME_INDEX" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-#SAMPLE_NAMES=$(cut -f $FILE_NAME_INDEX -d$'\t' $EXP_DESIGN | tail -n +2)
+# The variable grouping samples into replicates i.e the variable where replicates have a shared value must be in the third column
+CONDITION_INDEX=4
+# The variable giving the sample names must be in the first column
+SAMPLE_NAMES_INDEX=1
+CONDITIONS=$(awk '{print $'$CONDITION_INDEX'}' $EXP_DESIGN | tail -n +2 | sort | uniq | xargs)
+REPORTS_DIR="PSM_reports"
+echo "`date` call_moFF.sh CONDITIONS: ${CONDITIONS[*]}" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+echo "`date` call_moFF.sh Conditions available ${CONDITIONS[*]}" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
 
 
 i=1
-for S in ${SAMPLES[*]}
+for S in ${CONDITIONS[*]}
 do
-  echo $S
-  echo "`date` call_moFF.sh Running grep $S $EXP_DESIGN | awk '{print $4}' | cut -f 1 -d. | xargs | sed -e 's/ /|/g'" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-  SAMPLE_NAMES=$(grep $S $EXP_DESIGN | awk '{print $4}' | cut -f 1 -d. | xargs | sed -e 's/ /|/g')
-  SAMPLE_NAMES_ARRAY=($(grep $S $EXP_DESIGN | awk '{print $4}' | cut -f 1 -d. | xargs))
-  OK=$(python $ROOT_DIR/scripts/Python/check_paths.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME)
-  echo "`date` call_moFF.sh $OK" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  #echo "`date` call_moFF.sh Running grep $S $EXP_DESIGN | awk '{print $4}' | cut -f 1 -d. | xargs | sed -e 's/ /|/g'" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  SAMPLE_NAMES=$(grep $S $EXP_DESIGN | awk '{print $'$SAMPLE_NAMES_INDEX'}' | cut -f 1 -d. | xargs | sed -e 's/ /|/g')
+  SAMPLE_NAMES_ARRAY=($(grep $S $EXP_DESIGN | awk '{print $'$SAMPLE_NAMES_INDEX'}' | cut -f 1 -d. | xargs))
+  CMD="python $ROOT_DIR/scripts/Python/check_reports_exist.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME --reports_dir $REPORTS_DIR"
+  echo "`date` call_moFF.sh Analyzing samples in condition $S " >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  MOFF_OUTPUT=output_moff_RAW
+  REPORTS_EXIST=$(python $ROOT_DIR/scripts/Python/check_reports_exist.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME --reports_dir $REPORTS_DIR --suffix \"\")
+  echo `date` call_moFF.sh python $ROOT_DIR/scripts/Python/check_reports_exist.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME --reports_dir $REPORTS_DIR --suffix \"\" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  MOFF_DONE=$(python $ROOT_DIR/scripts/Python/check_reports_exist.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME --reports_dir  $REPORTS_DIR/$MOFF_OUTPUT --suffix "_match_moff_result")
+  REPORTS_EXIST=1
+  #CMD=python $ROOT_DIR/scripts/Python/check_reports_exist.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME --reports_dir  $REPORTS_DIR/$MOFF_OUTPUT --suffix "_match_moff_result"
+  #echo "`date` call_moFF.sh CMD $CMD" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  #MOFF_DONE=$(eval $CMD)
+  #MOFF_DONE=$(python $ROOT_DIR/scripts/Python/check_reports_exist.py --files ${SAMPLE_NAMES_ARRAY[@]} --root_dir $ROOT_DIR --exp_name $EXP_NAME --reports_dir  $MOFF_OUTPUT --suffix "_match_moff_result")
+  echo "`date` call_moFF.sh Are the reports available $REPORTS_EXIST ?" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  echo "`date` call_moFF.sh Is moFF done already? $MOFF_DONE" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+  RUN_MOFF=0
+  if [ $REPORTS_EXIST -ne $MOFF_DONE ] && [ $REPORTS_EXIST -eq 1 ]; then RUN_MOFF=1; else RUN_MOFF=0; fi
+  echo "`date` call_moFF.sh Calling moFF? $RUN_MOFF" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
 
-  if [ $OK -eq 1 ] 
+  if [ $RUN_MOFF -eq 1 ] 
   then
     echo "`date` call_moFF.sh SAMPLE_NAMES: ${SAMPLE_NAMES[*]}" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-    #SAMPLE_REPORTS=$(python $ROOT_DIR/scripts/Python/extract_files_path.py --sample $S --exp_design $EXP_DESIGN --prepend $ROOT_DIR/$EXP_NAME/$PS_OUT/reports --append "_Custom_PSM_Report.txt")
+    SAMPLE_REPORTS=$(python $ROOT_DIR/scripts/Python/extract_files_path.py --sample $S --exp_design $EXP_DESIGN --prepend $ROOT_DIR/$EXP_NAME/$PS_OUT/$REPORTS_DIR --append ".txt")
     #SAMPLE_MZML=$(python $ROOT_DIR/scripts/Python/extract_files_path.py --sample $S --exp_design $EXP_DESIGN --prepend $ROOT_DIR/$EXP_NAME/data/mzML --append ".mzML")
-    echo $SAMPLE_REPORTS
-    echo $SAMPLE_MZML
-    echo "`date` call_moFF.sh Calling moFF match between runs module" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-    CMD='python $MOFF_PATH/moff_mbr.py --inputF $ROOT_DIR/$EXP_NAME/peptideShaker_out/PSM_reports --sample "$SAMPLE_NAMES" --ext txt --log_file_name MBR'
+    SAMPLE_RAW=$(python $ROOT_DIR/scripts/Python/extract_files_path.py --sample $S --exp_design $EXP_DESIGN --prepend $ROOT_DIR/$EXP_NAME/data/RAW --append ".RAW")
+    echo "`date` call_moFF.sh Calling full moFF workflow (MBR and Apex)" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
+
+    CMD="python $MOFF_PATH/moff_all.py \
+      --tol 10 \
+      --output_folder $ROOT_DIR/$EXP_NAME/$PS_OUT/$REPORTS_DIR/$MOFF_OUTPUT \
+      --inputraw $SAMPLE_RAW
+      --inputtsv $SAMPLE_REPORTS
+      --rt_w 3.0 --tag_pep_sum_file moFF_run --weight_comb 1 \
+      --out_filt 1 --filt_width 1.5 --peptide_summary 1 --log_file_name $EXP_NAME"
+
     echo "`date` call_moFF.sh $CMD" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
     eval $CMD
 
@@ -50,9 +65,9 @@ do
     echo "`date` call_moFF.sh Omitting sample $S" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
   fi
 
-  source deactivate moFF
-  Rscript --vanilla $ROOT_DIR/scripts/R/custom_PSM_report.R --root_dir $ROOT_DIR --exp_name $EXP_NAME --sample_names ${SAMPLE_NAMES[*]}
-  source activate moFF
+  #source deactivate moFF
+  #Rscript --vanilla $ROOT_DIR/scripts/R/custom_PSM_report.R --root_dir $ROOT_DIR --exp_name $EXP_NAME --sample_names ${SAMPLE_NAMES[*]}
+  #source activate moFF
 
 done
 

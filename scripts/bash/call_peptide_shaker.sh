@@ -21,8 +21,8 @@ SAMPLE_NAME="${FILENAME%.*}"
 
 if [ -f $EXPERIMENTAL_DESIGN ]
 then
-  CONDITION_NAME=$(grep $SAMPLE_NAME $EXPERIMENTAL_DESIGN | awk '{print $5}')
-  REPLICATE=$(grep $SAMPLE_NAME $EXPERIMENTAL_DESIGN | awk '{print $1}')
+  CONDITION_NAME=$(grep $SAMPLE_NAME $EXPERIMENTAL_DESIGN | awk '{print $1}')
+  REPLICATE=$(grep $SAMPLE_NAME $EXPERIMENTAL_DESIGN | awk '{print $4}')
 else
   CONDITION_NAME="condition_1"
   REPLICATE=$i
@@ -104,7 +104,7 @@ then
 
    # Generate custom report including MS1 intensity
    echo "`date` call_peptide_shaker.sh Creating custom_PSM_report for sample $SAMPLE_NAME" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
-   ln ${SAMPLE_NAME}_Default_PSM_Report.txt ../PSM_reports/${SAMPLE_NAME}_Default_PSM_Report.txt
+   ln ${SAMPLE_NAME}_Default_PSM_Report.txt ../PSM_reports/${SAMPLE_NAME}.txt
    
    # #########################################
    # ## Clean reports for easy R parsing

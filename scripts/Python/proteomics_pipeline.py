@@ -22,7 +22,7 @@ parser.add_argument("--settings_dir", default = "settings")
 parser.add_argument("--moff_path", default = "/z/home/aoj/opt/moFF/", help="Path to moFF repository")
 parser.add_argument("--search_engines", default = "msgf", help="list of search_engines separated by space. Name must be identical to tag used in SearchGUI. Ex comet msgf xtandem")
 parser.add_argument("--msgfplus_path", default = "/z/home/aoj/opt/MSGFPlus/MSGFPlus.jar")
-parser.add_argument("--force_ps", default = "1")
+parser.add_argument("--force_ps", default = "0")
 parser.add_argument("--root_dir", default = "/z/home/aoj/thesis/genedata/")
 
 scripts = np.array(["check_flags.sh", "create_decoy_database.sh", "create_settings_file.sh", "search_all_mgf.sh",

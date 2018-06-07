@@ -11,21 +11,8 @@ args = parser.parse_args()
 arguments = vars(args)
 
 exp_design = pd.read_csv(arguments["exp_design"], sep="\t", header=0)
-files = exp_design.loc[exp_design["sample"] == arguments["sample"],:]["file"].values
-
+files = exp_design.loc[exp_design["Experiment"]== arguments["sample"],:]["Name"].values
 sample_names = [arguments["prepend"] + "/" + e.replace(".mgf", "") + arguments["append"] for e in files]
-
-
-if arguments["append"] == "_Default_PSM_Report.txt":
-    sample_mapping = pd.read_csv(arguments["prepend"] + "/../" + "sample_mapping.txt")
-    ps_sample_names = []
-    for sn in sample_names:
-        ps_sn = sample_mapping.loc[sample_mapping.iloc[:,0] == sn,:].iloc[:,1]
-        ps_sample_names.append(ps_sn)
-  
-    sample_names = ps_sample_names
-
-
 output = " ".join(sample_names) 
 print(output)
 

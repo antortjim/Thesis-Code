@@ -34,8 +34,8 @@ sample_names <- opt$sample_names %>% strsplit(split = "\\|") %>% unlist
 for (sample_name in sample_names) {
   print(sample_name)
   custom_psm_report_path  <- paste0(root_dir, "/", exp_name, "/peptideShaker_out/custom_reports/", sample_name, "_Custom_PSM_Report.txt")
-  default_psm_report_path  <- paste0(root_dir, "/", exp_name, "/peptideShaker_out/PSM_reports/", sample_name, "_Default_PSM_Report.txt")
-  matched_psm_report_path  <- paste0(root_dir, "/", exp_name, "/peptideShaker_out/PSM_reports/mbr_output/", sample_name, "_Default_PSM_Report_match.txt")
+  default_psm_report_path  <- paste0(root_dir, "/", exp_name, "/peptideShaker_out/PSM_reports/", sample_name, ".txt")
+  matched_psm_report_path  <- paste0(root_dir, "/", exp_name, "/peptideShaker_out/PSM_reports/mbr_output/", sample_name, "_match.txt")
   source_psm_report_path <- default_psm_report_path
   
   

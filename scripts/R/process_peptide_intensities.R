@@ -2,8 +2,9 @@ library("dplyr")
 library("optparse")
 library("ggplot2")
 
+home_dir <- ifelse(Sys.info()["sysname"] == "Linux", "/z/home/aoj", "//hest/aoj")
 option_list = list(
-  make_option(c("--root_dir"), type="character", default="//hest/aoj//thesis/genedata"),
+  make_option(c("--root_dir"), type="character", default=file.path(home_dir, "/thesis/genedata")),
   make_option(c("--exp_name"), type="character", default="thp1"),
   make_option(c("--input_dir"), type="character"),
   make_option(c("--output_dir"), type="character")
