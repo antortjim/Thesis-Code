@@ -15,7 +15,7 @@ parser.add_argument("--output_dir", required=True)
 arguments = vars(parser.parse_args())
 
 
-protein_ratios = pd.read_csv(os.path.join(arguments["input_dir"], "protein_ratios.tsv"), sep = "\t").iloc[:,:15]
+protein_ratios = pd.read_csv(os.path.join(arguments["input_dir"], "protein_ratios.tsv"), sep = "\t").iloc[:, :15]
 combinations = np.array(list(map(lambda x: x.split("/"), protein_ratios.columns.values.tolist())))
 n = protein_ratios.shape[0]
 sample_names = np.sort(np.unique(combinations.flatten()))
@@ -48,4 +48,4 @@ if __name__ == "__main__":
         protein_intensities[i,:] = np.where(minimisation == init_value, 0, minimisation)
     
 
-    np.savetxt(fname = os.path.join(arguments["output_dir"], "protein_intensities.tsv"), X=protein_intensities, fmt = "%10.5f", delimiter="\t")
+    np.savetxt(fname = os.path.join(arguments["output_dir"], "protein_intensities.tsv"), X=protein_intensities, fmt = "%10.5f", delimiter="\t", header="\t".join(sample_names.tolist()))
