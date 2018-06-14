@@ -2,6 +2,7 @@ import subprocess
 import numpy as np
 import argparse
 from argparse import RawTextHelpFormatter
+import os.path
 
 parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
 parser.add_argument("--database_names", default = "Homo_sapiens NZ_Contaminants")
@@ -12,7 +13,7 @@ parser.add_argument("--enzyme_specificity", default = '1')
 parser.add_argument("--nz_db", default = 1)
 parser.add_argument("--spectra", default = "data/mgf")
 #parser.add_argument("--spectra", default = "data/mgf_input")
-parser.add_argument("--filter", default="PD7505", required=False)
+parser.add_argument("--filter", default="", required=False)
 parser.add_argument("--exp_name", required=True)
 parser.add_argument("--searchgui_path", default = "/z/home/aoj/opt/SearchGUI-3.3.3/SearchGUI-3.3.3.jar")
 parser.add_argument("--peptideshaker_path", default = "/z/home/aoj/opt/PeptideShaker-1.16.23/PeptideShaker-1.16.23.jar")
@@ -27,7 +28,7 @@ parser.add_argument("--root_dir", default = "/z/home/aoj/thesis/genedata/")
 
 scripts = np.array(["check_flags.sh", "create_decoy_database.sh", "create_settings_file.sh", "search_all_mgf.sh",
   #"call_peptide_shaker.sh",
-  "call_moFF.sh"])
+  "call_moFF.sh", "occam_razor.sh", "XIC_norm.py"])
 help_message = "\n".join(["{}: {}".format(i, script_name) for i, script_name in enumerate(scripts)])
 help_message = "String of integers separated by space. Ex \"0 1 2\"\n" + help_message
 parser.add_argument("--steps", default = "0", help = help_message)
@@ -55,15 +56,25 @@ for key, value in arguments.items():
     
 handle.close()
 
+languages = {"py": "Python", "sh": "bash", "R": "R"}
+binaries = {"py": "python", "sh": "", "R": "Rscript"}
+
 print(scripts)
 print("Starting pipeline")
-flags = "{} {}".format(arguments["root_dir"], arguments["exp_name"])
 for scr in scripts:
-    
+    flags = "{} {}".format(arguments["root_dir"], arguments["exp_name"])
+    lang = languages[scr.split(".")[1]]
+    binary = binaries[scr.split(".")[1]]
     if scr == "search_all_mgf.sh":
         flags += " {}".format(arguments["filter"])
 
-    cmd = r"nohup {}/scripts/bash/{} {} > {}/{}/{}__{}.out".format(arguments["root_dir"], scr, flags, arguments["root_dir"], arguments["exp_name"], arguments["exp_name"], scr)
+    if scr  == "occam_razor.sh":
+        flags += " {}".format(os.path.join(arguments["root_dir"], arguments["exp_name"], "peptideShaker_out", "PSM_reports", "output_moff_RAW"))
+
+    if scr == "XIC_norm.py":
+        flags = " --root_dir {} --exp_name {}".format(arguments["root_dir"], arguments["exp_name"])
+
+    cmd = r"nohup {} {}/scripts/{}/{} {} > {}/{}/{}__{}.out".format(binary, arguments["root_dir"], lang, scr, flags, arguments["root_dir"], arguments["exp_name"], arguments["exp_name"], scr)
     print(cmd)
     subprocess.check_call(cmd, shell=True)
 print("Pipeline ended")

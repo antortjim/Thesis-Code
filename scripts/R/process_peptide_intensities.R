@@ -1,6 +1,7 @@
 library("dplyr")
 library("optparse")
 library("ggplot2")
+library("preprocessCore")
 
 home_dir <- ifelse(Sys.info()["sysname"] == "Linux", "/z/home/aoj", "//hest/aoj")
 option_list = list(
@@ -17,11 +18,13 @@ opt = parse_args(opt_parser)
 root_dir <- opt$root_dir
 exp_name <- opt$exp_name
 pipeline <- opt$pipeline
+# if pipeline false, the information in peptides.txt is read
+pipeline <- F
+# if pipeline true, the information from the xic normalization step in the pipeline is read
+pipeline <- T
 
 input_dir <- file.path(root_dir, exp_name, ifelse("input_dir" %in% names(opt), opt$input_dir, "quantification"))
 output_dir <- file.path(root_dir, exp_name, ifelse("output_dir" %in% names(opt), opt$output, "quantification"))
-
-
 
 ######################################################################
 ## Read data
@@ -35,114 +38,66 @@ if(any(experimental_design$Fraction != 1)) fractions_available <- T
 ###############################################################
 
 if(!pipeline) {
-  
   # The intensities file from MaxLFQ paper was generated using the script: /thesis/genedata/maxlfq/paper/load_maxlfq_data.R
+  # This loads the protein intensities prior to LFQ processing (least squares)
   intensities <- read.table(file = file.path(input_dir, "maxlfq_peptide_intensities.tsv"), sep = "\t", header=T, check.names = F)
+  # The protein ids associated to each peptide i.e the protein column in the PSM report
   peptides_Protein.IDs <- read.table(file = file.path(input_dir, "peptides_Protein.IDs.txt"), check.names = F, stringsAsFactors = F)[,1]
+  # The sequence associated to each peptide i.e the sequence column in the PSM report
   peptides_sequence <- read.table(file = file.path(input_dir, "peptides_sequence.txt"), check.names = F, stringsAsFactors = F)[,1]
+  
   combinations <- read.table(file = file.path(input_dir, "combinations.tsv"), sep = "\t") %>% as.matrix %>% .[-1,]
   combinations_names <- read.table(file = file.path(input_dir, "combinations_names.tsv"), sep = "\t", stringsAsFactors = F)[,1]
-  Protein.IDs <- read.table(file = file.path(input_dir, "Protein.IDs.tsv"), sep = "\t", header=F, stringsAsFactors = F)[,1]
   
-  # intensities <- intensities[,7:12]
-  # combinations <- combinations[,(66-14):66]
-  # combinations_names <- combinations_names[(66-14):66]
-  
-  ################################################################
+  suffix <- "_maxlfq_paper"
+  # Protein.IDs <- read.table(file = file.path(input_dir, "Protein.IDs.tsv"), sep = "\t", header=F, stringsAsFactors = F)[,1]
+  Protein.IDs <- unique(peptides_Protein.IDs)
 } else {
-  ## From our pipeline
-  #########################################################
-  #########################################################
+  # read from xic_norm
+  intensities <- read.table(file = file.path(root_dir, exp_name, "peptideShaker_out", "PSM_reports",
+                                             "output_moFF_raw", "peptide_summary_intensity_moFF_run_xic_norm.tab"),
+                            sep = "\t", header=T)
+  colnames(intensities) <- colnames(intensities) %>% gsub("_", "", .)
+  peptides_Protein.IDs <- intensities$Protein.IDs
+  peptides_sequence <- intensities$Sequence
+  combinations <- combn(x = colnames(intensities)[-c(1,2)], m = 2)
+  combinations_names <- combinations %>% apply(., 2, function(x) paste(x, collapse = "/"))
+  suffix <- "_own_pipeline"
   
-  # Read moFF output
-  xics <- read.table(file = file.path(input_dir, "../peptideShaker_out/PSM_reports/output_moff_RAW/peptide_summary_intensity_moFF_run.tab"),
-                     sep = "\t", header=T, check.names = F, stringsAsFactors = F)
-  colnames(xics)[1:2] <- c("Sequence", "Protein.IDs")
-  peptides <- xics[, c("Sequence", "Protein.IDs")]
-  colnames(xics) <- colnames(xics) %>% gsub(pattern = "sumIntensity_", replacement = "")
-  Protein.IDs <- peptides$Protein.IDs %>% unique
-  peptides$index <- 1:nrow(peptides)
-  
-  ## Post process moFF output so that protein ids are not shared across protein groups.
-  peptides$Size <- peptides$Protein.IDs %>% strsplit(., split = ", ") %>% lapply(length) %>% unlist
-  peptides <- peptides %>% arrange(-Size)
-  peptides_unique <- peptides[peptides$Size == 1, ]
-  
-  ### SIMPLE OCCAMS RAZOR: REMOVE PEPTIDES WHERE THE PROTEIN GROUP CONTAINS A PROTEIN AVAILABLE IN A SMALLER GROUP
-  ### AS STATED IN:
-  ### Peptide-level Robust Ridge Regression Improves Estimation, Sensitivity, and Specificity in Data-dependent Quantitative Label-free Shotgun Proteomics
-  ### It's too slow!!!! For now we just keep protein groups of size 1
-  
-  # peptides_non_unique <- peptides[peptides$Size > 1, ] 
-  # 
-  # protein_groups_all <- peptides$Protein.IDs %>% unique %>% strsplit(., split = ", ")
-  # protein_groups_unique <- peptides_unique$Protein.IDs %>% unique %>% strsplit(., split = ", ")
-  # protein_groups_non_unique <- peptides_non_unique$Protein.IDs %>% unique %>% strsplit(., split = ", ")
-  # 
-  # group_is_subset <- function(group1, group2) {
-  #   return(lapply(group1, function(x) x %in% group2) %>% unlist %>% any)
-  # }
-  # 
-  # group_is_subset(c("A", "B"), c("E", "C", "D"))
-  # 
-  # contained <- logical(length = length(protein_groups_non_unique))
-  # which_contained <- integer(length = length(protein_groups_non_unique))
-  # protein_group_size <- peptides$Size
-  # 
-  # 
-  # # For every group
-  # for(j in 1:length(protein_groups_non_unique)) {
-  #   print(j)
-  #   # For every group
-  #   for (i in 1:length(protein_groups_all)) {
-  #     # If the groups being compared are not the same, and the second group
-  #     # has not been flagged as containing proteins available in a smaller group
-  #     ################
-  #     # if(j != i) {
-  #     #   result <- group_is_subset(protein_groups_all[[i]], protein_groups_non_unique[[j]])
-  #     #   if(result) {
-  #     #     contained[j] <- result
-  #     #     which_contained[j] <- i
-  #     #     break()
-  #     #   }
-  #     # }
-  #     ################
-  #     if(j != i) {
-  #       result <- group_is_subset(protein_groups_all[[i]], protein_groups_non_unique[[j]])
-  #       if(result) {
-  #         contained[j] <- result
-  #         break()
-  #       }
-  #     }
-  #   }
-  # }
-  # 
-  # # Groups that contain a protein present in a smaller group
-  # which(contained)
-  # # The ith element in this vector shows the id of the small group that contains a protein shared with the ith group bigger group
-  # which_contained[contained]
-  # 
-  # peptides2 <- peptides[!contained, ]
-  ################################################
-  ## Keep protein groups of size 1
-  ################################################
-  xics <- xics[peptides$Size == 1,]
-  peptides <- peptides_unique
-  
-  if(fractions_available) {
-    write.table(x = xics, file = file.path(output_dir, "xics.tsv"), sep = "\t", col.names = T, row.names = F, quote = F)
-    # call Levenberg-Marquardt optimisation
-    intensities <- read.table(file = file.path(output_dir, "lm_intensities.tsv"), header=T, sep = "\t")
-  }
-  
-  #########################################################
-  #########################################################
 }
 
-# combinations <- colnames(intensities) %>% sort %>% combn(., m = 2)
-combinations_names <- combinations %>% apply(., 2, function(x) paste(x, collapse = "/"))
+######################################################################
+## Preprocess intensities: take the log2 and quantile.normalize()
+######################################################################
+
+conditions <- paste0(experimental_design$Experiment, experimental_design$Replicate) %>% unique %>% sort
+
+intensities_matrix <- as.matrix(intensities[conditions])
+if(pipeline) {
+intensities_matrix <- log2(intensities_matrix)
+intensities_matrix[is.infinite(intensities_matrix)] <- NA
+}
+
+log2_qnorm_intensities <- normalize.quantiles(intensities_matrix)
+# log2_intensities[is.na(log2_intensities)] <- 0
+
+intensities[conditions] <- log2_qnorm_intensities
+
+# intensities[conditions] <- log2_intensities
+head(log2_qnorm_intensities)
+log2_qnorm_intensities <- log2_qnorm_intensities %>% as.data.frame
+colnames(log2_qnorm_intensities) <- conditions
+
+ggplot(data = log2_qnorm_intensities %>% gather(),
+       aes(y = value, fill = key, x = key)) + geom_boxplot()
+ggsave(file.path(root_dir, exp_name, "plots", "intensity_normalization_across_samples.png"))
+
+write.table(x = intensities, file = file.path(root_dir, exp_name, "peptideShaker_out", "PSM_reports", "output_moFF_raw",
+                                              paste0("peptide_summary_intensity_qnorm", suffix, ".tsv")), row.names = T, col.names = T, sep = "\t", quote = F)
 
 
+# ggplot(data = select(intensities, H1:L3) %>% gather() %>% filter(value != 0),
+#        aes(x = value, col = key)) + geom_density()
 
 ######################################################################
 ## Compute peptide ratios from peptide intensity
@@ -221,9 +176,12 @@ table(x)
 hist(x, breaks = 30)
 # Hopefully most proteins have 0 ratios = 0, i.e the histogram should have a high bin at 0 and very low bins elsewhere
 # and lower the more to the right we move in the x axis
+# If most proteins have 0 ratios = 0 means that the aggregation to proteins didnt go well
 
 ######################################################################
 ## Export the protein ratios to a file
 ######################################################################
-write.table(x = protein_ratios, file = file.path(output_dir, "protein_ratios.tsv"), row.names = T, col.names = T, sep = "\t", quote = F)
-write.table(x = rownames(protein_ratios), file = file.path(output_dir, "protein_ratios.IDs.txt"), row.names = F, col.names = F, sep = "\t", quote = F)
+write.table(x = protein_ratios, file = file.path(output_dir, paste0("protein_ratios", suffix, ".tsv")), row.names = T, col.names = T, sep = "\t", quote = F)
+# Call LFQ.py with this file
+# or msnbase
+write.table(x = rownames(protein_ratios), file = file.path(output_dir, paste0("protein_ratios.IDs", suffix, ".txt")), row.names = F, col.names = F, sep = "\t", quote = F)

@@ -70,4 +70,7 @@ do
 
 done
 
+## Run the Occam's razor
+#$ROOT_DIR/scripts/bash/occam_razor.sh $ROOT_DIR $EXP_NAME $MOFF_OUTPUT
+
 

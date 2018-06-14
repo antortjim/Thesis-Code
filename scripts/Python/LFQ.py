@@ -11,11 +11,13 @@ import os.path
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_dir", required=True)
+parser.add_argument("--suffix", required=True)
 parser.add_argument("--output_dir", required=True)
 arguments = vars(parser.parse_args())
 
 
-protein_ratios = pd.read_csv(os.path.join(arguments["input_dir"], "protein_ratios.tsv"), sep = "\t").iloc[:, :15]
+protein_ratios = pd.read_csv(os.path.join(arguments["input_dir"], "protein_ratios{}.tsv".format(arguments["suffix"])), sep = "\t")
+#protein_ratios = pd.read_csv(os.path.join(arguments["input_dir"], "protein_ratios.IDs.txt"), sep = "\t").iloc[:, :15]
 combinations = np.array(list(map(lambda x: x.split("/"), protein_ratios.columns.values.tolist())))
 n = protein_ratios.shape[0]
 sample_names = np.sort(np.unique(combinations.flatten()))
@@ -46,6 +48,11 @@ if __name__ == "__main__":
     for i in tqdm(range(n)):
         minimisation = least_squares(fun_lfq, x0 = np.array([init_value] * len(sample_names)), kwargs={"i": i}).x
         protein_intensities[i,:] = np.where(minimisation == init_value, 0, minimisation)
-    
 
-    np.savetxt(fname = os.path.join(arguments["output_dir"], "protein_intensities.tsv"), X=protein_intensities, fmt = "%10.5f", delimiter="\t", header="\t".join(sample_names.tolist()))
+    
+    result = pd.DataFrame(protein_intensities)
+    index = protein_ratios.index[:n]
+    result.index = index
+    result.columns = sample_names.tolist()
+    result.to_csv(os.path.join(arguments["output_dir"], "protein_intensities{}.tsv".format(arguments["suffix"])), sep = "\t")
+    #np.savetxt(fname = os.path.join(arguments["output_dir"], "protein_intensities.tsv"), X=protein_intensities, fmt = "%10.5f", delimiter="\t", header="\t".join(sample_names.tolist()))
