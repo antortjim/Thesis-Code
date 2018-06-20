@@ -1,13 +1,55 @@
+##############################
+# Pipeline documentation
+##############################
 
-# Index of what the scripts do
-
-## PIPELINE SCRIPTS
+## Peptide and protein search and inference
 
 
-## XIC_norm.py
+
+## find_normalization_factors.py
 
 Replicates the fraction normalization algorithm implemented in MaxQuant that aggregates XICs for the same peptide
-collected across different fractions of the same sample.
+collected across different fractions of the same sample. This is done by performing Levenberg-Marquandt (LM) minimisation
+of the squared logarithm of the peptide intensity ratio across any two samples for all samples and peptides
+
+### Input
+
+* A `peptide_summary_intensity_moFF_run.tab` file created by moFF
+* A `experimental_design.tsv` file storing the sample organisation
+
+It takes an optional argument `--n_peps` if the user wants to minimise on less peptides than those available for debugging / speed up purposes
+
+### Output
+
+A txt file storing the normalisation factor for sample ith in the ith row
+
+## Call
+
+`python scripts/Python/find_norm_factors.py --root_dir `pwd` --exp_name maxlfq --n_peps 1000`
+
+## aggregate_fractions.py
+
+Completes the normalization process initiated by `find_norm_factors.py` by taking the estimated root of the LM minimisation (the normalization factors)
+and aggregates  in order to remove the fraction effect.
+
+### Input
+
+* A `peptide_summary_intensity_moFF_run.tab` file created by moFF
+* A `experimental_design.tsv` file storing the sample organisation
+* A `normalization_factors.txt` file storing the solution to the LM minimisation
+
+### Output
+
+* A `peptide_summary_intensity_moFF_run_fraction_normalized.tab` file with format identical to that created by moFF but now featuring one column per experiment+replicate.
+The name of the column is built like this "{}{}".format(experiment, replicate). So the column representing data from all fractions of the sample from condition L and replicate 1
+will be called L1.
+
+## Call
+
+`python scripts/Python/aggregate_fractions.py --root_dir `pwd` --exp_name maxlfq`
+
+
+### PEPTIDE AGGREGATION
 
 ## LFQ.py
 
@@ -31,16 +73,42 @@ A `protein_intensities.tsv` file, a table with one column per sample and one row
 Every i,j cell represents the quantification of group i in sample j.
 
 
-
-## process_peptide_intensities.R
-
-Reads 
-
-
 ## moff_to_msqrob.R
 
-Reads moff output in a peptide_summary_intensity_moFF_run.tab and the experimental design in `exp_name/data/experimental_design.tsv`.
-Returns a data frame stored in the `exp_name/quantification/RSqM_signif.tsv` with the following fields:
+Reads moff output in a peptide_summary_intensity_moFF_run[_SUFFIX].tab and the experimental design in `exp_name/data/experimental_design.tsv`.
+Returns a robust estimation of the log2(FC) for as many proteins as possible, together with test statistics
+
+This table can be fed to proteomic_analysis.R to create a volcano plot and perform gene set enrichment analysis
+
+If the `--fraction_normalized` flag is passed, the moFF file is assumed to be produced by `aggregate_fractions` and not moFF itself.
+This means that the experimental annotation needs to be edited to remove the fractions
+The value of the `--suffix` is a string appended to the RSqM_signif filename
+If `--save_model` the session is saved to the export folder, set by default to the quantification folder of the experiment
+
+#### Details
+
+The script makes use of the MSqRob package for robust protein quantification of MaxQuant/moFF output.
+In turn this package makes use of the data structures implemented in the MSnBase package (MSnSet data).
+
+It works by:
+
+1. Importing the data with `import2MSnSet`.
+2. Preprocess with `preprocess_MSnSet`.
+3. Compile to a protdata object (implemented in MSqRob).
+4. Fit a ridge regression model with Huber weights and empirical bayes estimation of the variance (robust regression).
+5. Build a contrast matrix and perform hypothesis testing with `test.protLMcontrast`.
+6. Adjust results for multiple testing with `prot.p.adjust`.
+
+
+### Input
+
+* A `peptide_summary_intensity_moFF_run.tab` file created by moFF or by aggregate_fractions.R
+* A `experimental_design.tsv` file storing the sample organisation
+* Several flags to fine tune the behaviour
+
+### Output
+
+A `RSqM_signif` file saved to the default export folder. It is a table with the following fields:
 
 - estimate (robust estimate of the log2FC of a contrast)
 - se (standard error of the estimate)
@@ -51,19 +119,27 @@ Returns a data frame stored in the `exp_name/quantification/RSqM_signif.tsv` wit
 - signif (true if qval is less than 0.05)
 - Protein.IDs (protein ids of the group)
 
-This table can be fed to proteomic_analysis.R to create a volcano plot and perform gene set enrichment analysis
-
 ### Call
-`nohup Rscript scripts/R/moff_to_msqrob.R --exp_name maxlfq --moff_file peptide_summary_intensity_moFF_run.tab --sample_filter "" --experiment_contrasts conditionH-conditionL --save_model &`
+`nohup Rscript scripts/R/moff_to_msqrob.R --root_dir `pwd` --exp_name maxlfq --moff_file peptide_summary_intensity_moFF_run.tab --sample_filter "" --experiment_contrasts conditionH-conditionL --save_model --suffix "" [--fraction_normalized] &`
 
 ## proteomic_analysis.R
 
-Reads MSqRob output from exp_name/quantification/RSqM_signif.tsv and performs differential abundance analysis, gsea and creates a volcano plot.
+Reads MSqRob output from `exp_name/quantification/RSqM_signif.tsv` and performs differential abundance analysis, Protein Set Enrichment Analysis (PSEA, similar to GSEA) and creates a volcano plot.
+
+## Input
+
+* RSqM_signif.tsv file created by moff_to_msqrob.R 
+
+## Output
+
+
 
 ### Call
-``
 
-## 
+`nohup Rscript scripts/R/proteomic_analysis.R --root_dir `pwd` --exp_name maxlfq &`
+
+
+
 
 ## BENCHMARK SCRIPTS
 
