@@ -18,25 +18,29 @@ arguments = vars(parser.parse_args())
 
 
 output_moff_path = os.path.join(arguments["root_dir"], arguments["exp_name"], "peptideShaker_out", "PSM_reports", "output_moff_RAW")
+
 ### OCCAM RAZOR here using the R function from MSqRob
 #occam_path = os.path.join(arguments["root_dir"], "scripts", "bash", "occam_razor.sh")
 #subprocess.call("{} {} {} {}".format(occam_path, arguments["root_dir"], arguments["exp_name"], output_moff_path), shell=True)
 ###########################################
-xics_full = pd.read_csv(os.path.join(output_moff_path, "peptide_summary_intensity_moFF_run_occam.tab"), sep = "\t")
+output_moff = pd.read_csv(os.path.join(output_moff_path, "peptide_summary_intensity_moFF_run.tab"), sep = "\t")
 
-xics_full.columns = [c.replace("sumIntensity_", "") for c in xics_full.columns]
 
-#xics_full = pd.read_csv(os.path.join(arguments["root_dir"], arguments["exp_name"], arguments["input_dir"], "xics.tsv"), sep = "\t")
 experimental_design = pd.read_csv(os.path.join(arguments["root_dir"], arguments["exp_name"], "data", "experimental_design.tsv"), sep = "\t")
 experimental_design.sort_values(by = ["Group", "Replicate"], inplace=True)
+
 groups = experimental_design["Group"].values
 experiment = experimental_design["Experiment"].values
 replicate = experimental_design["Replicate"].values
 groups_unique = np.unique(groups)
-exp_rep = experimental_design["Experiment"].map(str) + "_" + experimental_design["Replicate"].map(str)
-exp_rep_dict = {e_r: np.where(exp_rep == e_r)[0] for e_r in exp_rep}
 
+# A list of experiment + replicate combinations (H1, L1, H2, L2, etc)
+exp_rep = experimental_design["Experiment"].map(str) + "_" + experimental_design["Replicate"].map(str)
+# Dictionary storing the indices of each experiment_replicate in the experimental design
+# i.e exp_rep_dic[H_1] is a list whith indices leading to the rows that belong to the fractions of H_1
+exp_rep_dict = {e_r: np.where(exp_rep == e_r)[0] for e_r in exp_rep}
 group_indices = {g: np.where(g == groups)[0].tolist() for g in groups_unique}
+
 for key, value in group_indices.items():
     new_dict = {}
     for v in value:
@@ -47,8 +51,8 @@ for key, value in group_indices.items():
 # Make it a list so that the len can be computed a priori
 exp_rep_combinations = list(itertools.combinations(np.unique(exp_rep), 2)) 
 
-n = xics_full.shape[0]
-xics = xics_full.iloc[:n, 2:]
+n = output_moff.shape[0]
+xics = output_moff.iloc[:n, 2:]
 
 def group_in_experiment(g, e):
     exper = experimental_design["Experiment"].loc[experimental_design["Group"] == g]
@@ -76,24 +80,23 @@ def constrainedFunction(x, f, lower, upper, minIncr=0.001):
      xBorder = np.where(x<lower, lower, x)
      xBorder = np.where(x>upper, upper, xBorder)
      fBorder = f(xBorder)
-     distFromBorder = (np.sum(np.where(x<lower, lower-x, 0.))
-                      +np.sum(np.where(x>upper, x-upper, 0.)))
-     return (fBorder + (fBorder
-                       +np.where(fBorder>0, minIncr, -minIncr))*distFromBorder)
+     distFromBorder = (np.sum(np.where(x<lower, lower-x, 0.)) + np.sum(np.where(x>upper, x-upper, 0.)))
+     return (fBorder + (fBorder + np.where(fBorder>0, minIncr, -minIncr))*distFromBorder)
     
 
 
 def main(minimize=True):
     x0 = np.full(xics.shape[1], init_value)
     if minimize:
-        N = root(constrainedFunction, x0 = x0, method="lm", args = (fun_xic_norm, np.array([0,]*xics.shape[1]), np.array([20,]*xics.shape[1]))).x
-        prefix = "_norm"
+        # find the normalization fators that minimise fun_xic_norm
+        N = root(constrainedFunction, x0=x0, method="lm", args=(fun_xic_norm, np.array([0,]*xics.shape[1]), np.array([20,]*xics.shape[1]))).x
+        prefix = "_fraction_normalization"
         print("Saving norm factors to file")
-        np.savetxt(fname = os.path.join(output_moff_path, "normalization_factors.tsv"), X=N, fmt = "%10.5f", delimiter="\t")
+        np.savetxt(fname=os.path.join(output_moff_path, "normalization_factors.tsv"), X=N, fmt="%10.5f", delimiter="\t")
 
 
     else:
-        prefix = ""
+        prefix = "_raw_sum"
         N = x0
 
     intensities = xics.values * N 
@@ -125,12 +128,11 @@ def main(minimize=True):
     result = pd.concat([xics_full.iloc[:, :2], result], axis = 1)
     result.columns = ["Sequence", "Protein.IDs"] + colnames
     print("Saving aggregated intensities to file")
-    result.to_csv(os.path.join(arguments["root_dir"], arguments["exp_name"], "peptideShaker_out", "PSM_reports", "output_moff_RAW" , "peptide_summary_intensity_moFF_run_xic_norm" + prefix + ".tab"), sep = "\t", index=False)
-    #np.savetxt(fname = os.path.join(arguments["root_dir"], arguments["exp_name"], arguments["output_dir"], "lm_intensities.tsv"), X=result, fmt = "%10.5f", delimiter="\t")
+    result.to_csv(os.path.join(arguments["root_dir"], arguments["exp_name"], "peptideShaker_out", "PSM_reports", "output_moff_RAW", "peptide_summary_intensity_moFF_run" + prefix + ".tab"),
+                  sep="\t", index=False)
 
 if __name__ == "__main__":
     init_value = 1
-    #local_xics = xics.iloc[i,:].values
     xic_values = xics.values
  
     main(True)

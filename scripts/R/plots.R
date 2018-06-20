@@ -267,7 +267,6 @@ deps <- c(pos_deps, neg_deps)
 
 
 library("gProfileR")
-
 gsea <- gprofiler(query = deps, organism = "hsapiens")
 
 #######################################################################################
