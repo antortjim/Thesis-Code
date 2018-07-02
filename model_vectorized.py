@@ -9,7 +9,7 @@ import shutil
 import os
 from exp_annot_funcs import *
 
-def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shared, x_run_shared, x_estimate_shared, n_peptides, model_name, n_draws=1000, n_chains=3, hierarchical_center=False, advi=True, remove_backend=True):
+def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shared, x_run_shared, x_estimate_shared, n_peptides, model_name, n_draws=1000, n_chains=3, hierarchical_center=False, advi=True, remove_backend=True, sequence=False):
  
 
     """
@@ -79,17 +79,16 @@ def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shar
         
         # sigma will be some random error protein specific variance
         sigma = pm.HalfNormal('sigma', 1)
-        
-        #
         sigma_pep = pm.HalfNormal('sigma_pep', 1)
-        #mu_pep = pm.Normal('mu_pep', 0, sigma_pep)
-        # sequnce modelling
-        mu_theta = pm.Normal('theta_generic', 0, sigma_pep, shape = 1)
-        theta = pm.Normal('theta', mu_theta, sigma_pep, shape = (n_features, 1)    # 9x1
-        theta_intercept = pm.Normal('theta_intercept', theta_generic, sigma_pep, shape = 1)
 
-        #mu_pep = pm.Deterministic("mu_pep", theta_intercept + pm.math.sum(features_p_shared.dot(theta), axis = 1)) # n_peptidesx1
-        mu_pep = pm.Deterministic("mu_pep", theta_intercept + features_p_shared.dot(theta)) # n_peptidesx1
+        if not sequence:
+            mu_pep = pm.Normal('mu_pep', mu=0, sd=sigma_pep, shape=(n_peptides, 1))
+        else: 
+            # sequence based modelling
+            mu_theta = pm.Normal('theta_generic', 0, sigma_pep, shape = 1)
+            theta = pm.Normal('theta', mu_theta, sigma_pep, shape = (n_features, 1))    # 9x1
+            theta_intercept = pm.Normal('theta_intercept', mu_theta, sigma_pep, shape = 1)
+            mu_pep = pm.Deterministic("mu_pep", theta_intercept + features_p_shared.dot(theta)) # n_peptidesx1
 
         sigma_treat = pm.HalfNormal('sigma_treat', 1)
         mu_treat = pm.Normal('mu_treat', 0, sigma_treat)
@@ -98,7 +97,6 @@ def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shar
 
         if hierarchical_center:
             pep = pm.Normal("pep", mu_pep, sigma_pep) # n_peptidesx1
-            #pep = pm.Normal('pep', mu_pep , sigma_pep, shape = (n_peptides, 1))
             treat = pm.Normal('treat', mu_treat, sigma_treat, shape = (n_proteins*2, 1))
             run = pm.Normal('run', mu_run, sigma_run, shape = (n_proteins*6, 1))
         else:
@@ -117,12 +115,12 @@ def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shar
         run_effect = pm.Deterministic("run_effect", pm.math.sum(x_run_shared.dot(run), axis=1))
 
         # Likelihood function for the data.
-        mu = pm.Deterministic("mu", intercept + treatment_effect + peptide_effect + run_effect)
+        mu = pm.Deterministic("mu", intercept + treatment_effect + peptide_effect + run_effect) #n_peptides*6x1
         if hierarchical_center:
-            obs = pm.Normal("likelihood", mu, sigma, observed=observed_shared)
+            obs = pm.Normal("obs", mu, sigma, observed=observed_shared)
         else:
             obs_offset = pm.Normal("obs_offset", mu=0, sd=1, shape=(n_peptides*6,1))
-            obs = pm.Normal("likelihood", mu+obs_offset*sigma, sigma, observed=observed_shared)
+            obs = pm.Normal("obs", mu+obs_offset*sigma, sigma, observed=observed_shared)
 
 
     print("Success: Model {} compiled".format(model_name))
