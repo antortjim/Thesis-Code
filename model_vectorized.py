@@ -56,12 +56,20 @@ def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shar
    
     """
 
+    if not os.path.isdir("traces") or not os.path.isdir("plots/traceplots"):
+        raise Exception("Please create a traces dir and a plots/traceplots dir before running this code")
+
+
+    trace_name = 'traces/{}'.format(model_name)
+    traceplot = "plots/traceplots/{}.png".format(model_name)
+
     if remove_backend and os.path.isdir(model_name):
         shutil.rmtree(model_name)
 
     # Get the data for the current protein being analyzed
-    n_peptides = 2
+    n_features = 9
     n_proteins = 1
+    
 
 
 
@@ -71,15 +79,26 @@ def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shar
         
         # sigma will be some random error protein specific variance
         sigma = pm.HalfNormal('sigma', 1)
+        
+        #
         sigma_pep = pm.HalfNormal('sigma_pep', 1)
-        mu_pep = pm.Normal('mu_pep', 0, sigma_pep)
+        #mu_pep = pm.Normal('mu_pep', 0, sigma_pep)
+        # sequnce modelling
+        mu_theta = pm.Normal('theta_generic', 0, sigma_pep, shape = 1)
+        theta = pm.Normal('theta', mu_theta, sigma_pep, shape = (n_features, 1)    # 9x1
+        theta_intercept = pm.Normal('theta_intercept', theta_generic, sigma_pep, shape = 1)
+
+        #mu_pep = pm.Deterministic("mu_pep", theta_intercept + pm.math.sum(features_p_shared.dot(theta), axis = 1)) # n_peptidesx1
+        mu_pep = pm.Deterministic("mu_pep", theta_intercept + features_p_shared.dot(theta)) # n_peptidesx1
+
         sigma_treat = pm.HalfNormal('sigma_treat', 1)
         mu_treat = pm.Normal('mu_treat', 0, sigma_treat)
         sigma_run = pm.HalfNormal('sigma_run', 1)
         mu_run = pm.Normal('mu_run', 0, sigma_run)
 
         if hierarchical_center:
-            pep = pm.Normal('pep', mu_pep , sigma_pep, shape = (n_peptides, 1))
+            pep = pm.Normal("pep", mu_pep, sigma_pep) # n_peptidesx1
+            #pep = pm.Normal('pep', mu_pep , sigma_pep, shape = (n_peptides, 1))
             treat = pm.Normal('treat', mu_treat, sigma_treat, shape = (n_proteins*2, 1))
             run = pm.Normal('run', mu_run, sigma_run, shape = (n_proteins*6, 1))
         else:
@@ -114,21 +133,21 @@ def protein_model(observed_shared, features_p_shared, x_treat_shared, x_pep_shar
         n_sim = n_draws*n_chains
 
         # Save traces to the Text backend i.e a folder called model_name containing csv files for each chain
-        db = pm.backends.Text('{}'.format(model_name))
+        db = pm.backends.Text(trace_name)
         if not advi:
             trace = pm.sample(draws=n_draws, njobs=n_chains, trace=db, tune=2000, nuts_kwargs=dict(target_accept=.95))
-        else:
-            inference = pm.ADVI()
-            approx = pm.fit(n=30000, method=inference, callbacks=[pm.callbacks.CheckParametersConvergence(diff='absolute')])
-            trace = approx.sample(draws=n_draws)
-            plt.plot(-inference.hist, label='ADVI', alpha=.3)
-            plt.legend()
-            plt.ylabel('ELBO')
-            plt.xlabel('iteration');
-            plt.savefig("elbos/ELBO_{}.png".format(model_name))
-    
+#        else:
+#            inference = pm.ADVI()
+#            approx = pm.fit(n=30000, method=inference, callbacks=[pm.callbacks.CheckParametersConvergence(diff='absolute')])
+#            trace = approx.sample(draws=n_draws)
+#            plt.plot(-inference.hist, label='ADVI', alpha=.3)
+#            plt.legend()
+#            plt.ylabel('ELBO')
+#            plt.xlabel('iteration');
+#            plt.savefig("elbos/ELBO_{}.png".format(model_name))
+#    
     pm.traceplot(trace, varnames=["estimate"])
-    plt.savefig("traceplots/{}.png".format(model_name))
+    plt.savefig(traceplot)
     plt.close()
        
     return model
