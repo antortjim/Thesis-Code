@@ -1,6 +1,6 @@
 library("readxl")
-proteins <- read.table(file = "proteins.txt", header = F, stringsAsFactors = F)[,1]
-supplementary_file <- "mcp.M113.031591-1.xlsx"
+# proteins <- read.table(file = "proteins.txt", header = F, stringsAsFactors = F)[,1]
+supplementary_file <- "MaxLFQ/mcp.M113.031591-1.xlsx"
 
 supplementary <- read_xlsx(path = supplementary_file)
 taxonomy <- supplementary[,c("Protein IDs", "Taxonomy")]
