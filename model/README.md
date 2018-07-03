@@ -10,15 +10,23 @@ MS-Bay - Bayesian estimation of log2(FC)
 ---
 
 
-## Quckstart
+## Quickstart
 
-#### Instantiate an MsBay object with a full protemics experiment dataset
 
-SCREENSHOT OF TABLE WITH MS1 INTENSITIES
 
+###  Read data for a full protemics experiment dataset
 
 ```
-msbay = MsBay(data, features)
+data = pd.read_csv("data/data.tsv", sep = "\t")
+data.head(10)
+```
+![skema](../figures/MS1_intensities.png)
+
+
+#### Instantiate an MsBay object
+```
+from MSBay import MSbay
+msbay = MSBay(data, features)
 ```
 
 #### Compile a model for 2 (n) peptides

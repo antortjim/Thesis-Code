@@ -6,7 +6,7 @@ import shutil
 import os
 
 
-class MsBay:
+class MSBay:
 
     "Compile a MS-Bay model, load data into it and infer the posterior"
 
