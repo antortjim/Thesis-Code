@@ -1,14 +1,32 @@
-##############################
-# Pipeline documentation
-##############################
+# Pipeline documentation #
+
+ * [Introduction](#introduction)
+ * [Minimum Requirements](#minimum-requirements)
+ * [Scripts](#scripts)
+ * [Output Data](#output-data)
+---
+
+## Introduction ##
+
+This repo provides a complete open source, free and (almost) 100 % Linux supported pipeline for the label-free quantification analysis of RAW MS spectra files.
+
+It is achieved by performing the main following tasks:
+
+- Search spectra against protein database and find Peptide-to-Spectrum-Matches (PSMs) using one or several search engines.
+- Validation and FDR filtering of the search results.
+- Match between runs and apex intensity extraction.
+- Quantification proper.
+
+## Minimum requirements ##
+
+## Scripts ##
 
 ## Peptide and protein search and inference
 
 
-
 ## find_normalization_factors.py
 
-Replicates the fraction normalization algorithm implemented in MaxQuant that aggregates XICs for the same peptide
+Replicates the "fraction normalization" algorithm implemented in MaxQuant that aggregates XICs for the same peptide
 collected across different fractions of the same sample. This is done by performing Levenberg-Marquandt (LM) minimisation
 of the squared logarithm of the peptide intensity ratio across any two samples for all samples and peptides
 
@@ -17,11 +35,11 @@ of the squared logarithm of the peptide intensity ratio across any two samples f
 * A `peptide_summary_intensity_moFF_run.tab` file created by moFF
 * A `experimental_design.tsv` file storing the sample organisation
 
-It takes an optional argument `--n_peps` if the user wants to minimise on less peptides than those available for debugging / speed up purposes
+It takes an optional argument `--n_peps` if the user wants to minimise on less peptides than those available for debugging / speed up purposes.
 
 ### Output
 
-A txt file storing the normalisation factor for sample ith in the ith row
+A normalisation_factors.txt file storing the normalisation factor for sample ith in the ith row
 
 ## Call
 
@@ -53,17 +71,16 @@ will be called L1.
 
 ## LFQ.py
 
-Replicates the LFQ algorithm implemented in MaxQuant that estimates protein abundances by
-minimising the global protein intensity differences based on the protein ratios.
+Replicates the LFQ algorithm implemented in MaxQuant that estimates protein abundances by minimising the global protein intensity differences based on the protein ratios.
 
 
 ### Input 
 
 A `protein_ratios.txt` file, which is a matrix where
 
-- Every row represents a protein group
-- Every column represents a comparison between 2 samples
-- The first column (no colname) shows the ids in the protein group 
+- Every row represents a protein group.
+- Every column represents a comparison between 2 samples.
+- The first column (no colname) shows the ids in the protein group.
 
 This file can be obtained with process_peptide_intensities.R
 
@@ -75,7 +92,7 @@ Every i,j cell represents the quantification of group i in sample j.
 
 ## moff_to_msqrob.R
 
-Reads moff output in a peptide_summary_intensity_moFF_run[_SUFFIX].tab and the experimental design in `exp_name/data/experimental_design.tsv`.
+Reads moFF-like output in a peptide_summary_intensity_moFF_run[_SUFFIX].tab and the experimental design in `exp_name/data/experimental_design.tsv`.
 Returns a robust estimation of the log2(FC) for as many proteins as possible, together with test statistics
 
 This table can be fed to proteomic_analysis.R to create a volcano plot and perform gene set enrichment analysis
@@ -104,7 +121,7 @@ It works by:
 
 * A `peptide_summary_intensity_moFF_run.tab` file created by moFF or by aggregate_fractions.R
 * A `experimental_design.tsv` file storing the sample organisation
-* Several flags to fine tune the behaviour
+* Several flags to fine tune the behaviour: which contrast to test, etc.
 
 ### Output
 
@@ -120,6 +137,7 @@ A `RSqM_signif` file saved to the default export folder. It is a table with the 
 - Protein.IDs (protein ids of the group)
 
 ### Call
+
 `nohup Rscript scripts/R/moff_to_msqrob.R --root_dir `pwd` --exp_name maxlfq --moff_file peptide_summary_intensity_moFF_run.tab --sample_filter "" --experiment_contrasts conditionH-conditionL --save_model --suffix "" [--fraction_normalized] &`
 
 ## proteomic_analysis.R
@@ -132,11 +150,24 @@ Reads MSqRob output from `exp_name/quantification/RSqM_signif.tsv` and performs 
 
 ## Output
 
+Plots:
+
+-Volcano plot showing for every protein group:
+  - on the x axis the value of the estimated log2FC
+  - on the y axis the value of the -log10 p-value
+
+-Histogram showing the estimate distribution
+
+-Lists of up-regulated and down-regulated proteins.
+-List of proteins with significant change but beneath the log2fc_threshold.
+-List of proteins for which the estimate could not be computed. This is due to most peptides being missing in all replicates of one of the conditions of the contrast
+  
+Plots and summary statistics
 
 
 ### Call
 
-`nohup Rscript scripts/R/proteomic_analysis.R --root_dir `pwd` --exp_name maxlfq &`
+`nohup Rscript scripts/R/proteomic_analysis.R --root_dir `pwd` --exp_name maxlfq --suffix "" --log2fc_threshold 1 &`
 
 
 
