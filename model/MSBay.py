@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from theano import shared
 import shutil
 import os
+from exp_annot_funcs import *
 
 
 class MSBay:
@@ -13,16 +14,16 @@ class MSBay:
     def __init__(self, data, features):
        self.data = data
        self.features = features
-       self.observed_sh  = shared(np.array([0,]))
-       self.feats_sh  = shared(np.array([[0,],]))
-       self.x_treat_sh  = shared(np.array([[0,],]))
-       self.x_pep_sh  = shared(np.array([[0,],]))
-       self.x_run_sh  = shared(np.array([[0,],]))
-       self.x_estimate_sh  = shared(np.array([[0,],]))
-       self.model = None
- 
-    def compile_model(self, n_peptides, hierarchical_center=False, remove_backend=True, sequence=False):
-    
+
+    def compile_model(self, n_peptides, hierarchical_center=False, sequence=False):
+
+        self.observed_sh  = shared(np.array([0.,]*6*n_peptides))
+        self.feats_sh  = shared(np.array([[0.,]*9,]*n_peptides))
+        self.x_treat_sh  = shared(np.array([[0.,]*2,]*6*n_peptides))
+        self.x_pep_sh  = shared(np.array([[0.,]*n_peptides,]*6*n_peptides))
+        self.x_run_sh  = shared(np.array([[0.,]*6,]*6*n_peptides))
+        self.x_estimate_sh  = shared(np.array([[0.,]*2,]*1))
+     
         # The number of proteins in this model is always one
         # i.e this model is fitted protein-wise
         n_prots = 1
@@ -99,7 +100,8 @@ class MSBay:
             # The first 6 numbers store the MS1 intensities of the first peptide in the 6 runs
             # The next 6 those of the second peptide, and so on
     
-            estimate = pm.Deterministic('estimate', pm.math.sum(self.x_estimate_sh.dot(treat), axis=1))
+            #estimate = pm.Deterministic('estimate', pm.math.sum(self.x_estimate_sh.dot(treat), axis=1))
+            estimate = pm.Deterministic('estimate', self.x_estimate_sh.dot(treat))
             treatment_effect = pm.Deterministic("treatment_effect", pm.math.sum(self.x_treat_sh.dot(treat), axis=1))
             peptide_effect = pm.Deterministic("peptide_effect", pm.math.sum(self.x_pep_sh.dot(pep), axis=1))
             run_effect = pm.Deterministic("run_effect", pm.math.sum(self.x_run_sh.dot(run), axis=1))
@@ -119,15 +121,15 @@ class MSBay:
         self.model = model
         return model
     
-    def compute_posterior(model_name, n_draws=1000, n_chains=3):
+    def sample(self, model_name, n_draws=1000, n_chains=3, remove_backend=True):
     
         # Check working environment  
         if not os.path.isdir("traces") or not os.path.isdir("plots/traceplots"):
             msg = "Please create a traces dir and a plots/traceplots dir before running this code"
             raise Exception(msg)
     
-        if remove_backend and os.path.isdir(model_name):
-            shutil.rmtree(model_name)
+        if remove_backend and os.path.isdir("traces/{}".format(model_name)):
+            shutil.rmtree("traces/{}".format(model_name))
     
     
         with self.model:
@@ -149,13 +151,29 @@ class MSBay:
         plt.close()
            
         return trace
+
+    def fit(self, model_name, n_draws):
+
+        with self.model:
+            
+            inference = pm.ADVI()
+            trace = pm.fit(method=inference).sample(n_draws)
+
+        plt.plot(-inference.hist, alpha=.5)
+        plt.legend()
+        plt.ylabel('ELBO')
+        plt.xlabel('iteration');
+        plt.savefig("plots/ELBO/{}".format(model_name))
+        plt.close()
+        
+        return trace
     
     def load_data(self, p):
     
         variables = create_variables(self.data, self.features, [p])
         observed, feats, x_treat, x_pep, x_run, x_estimate = variables
         self.observed_sh.set_value(observed)
-        self.feats_sh.set_value(features_p)    
+        self.feats_sh.set_value(feats)    
         self.x_treat_sh.set_value(x_treat)
         self.x_pep_sh.set_value(x_pep)
         self.x_run_sh.set_value(x_run)
