@@ -1,0 +1,4 @@
+library(MSqRob)
+file_peptides_txt <- system.file("extdata/CPTAC", "peptides.txt", package = "MSqRobData")
+
+
