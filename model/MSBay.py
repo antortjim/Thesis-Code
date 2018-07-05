@@ -157,6 +157,7 @@ class MSBay:
         with self.model:
             
             inference = pm.ADVI()
+            # how can the trace be saved when using pm.fit??
             trace = pm.fit(n=n_draws, method=inference).sample()
 
         plt.plot(-inference.hist, alpha=.5)

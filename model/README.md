@@ -33,7 +33,7 @@ msbay = MSBay(data, features)
 
 #### Compile a model for 2 (n) peptides
 ```
-model = MsBay.compile_model(n_peptides=2)
+model = msbay.compile_model(n_peptides=2)
 ```
 
 #### Load the peptides for protein P76397.
@@ -41,7 +41,7 @@ model = MsBay.compile_model(n_peptides=2)
 Its true fold change is log2(3) = 1.58
 ```
 # An E. coli protein with 2 peptides observed.
-model.load_data("P76397")
+msbay.load_data("P76397")
 ```
 
 #### (A) Compute posterior by using the NUTS sampler
@@ -98,6 +98,12 @@ plt.savefig("plots/posteriors/{}_advi.png".format(p))
 Both methods return a posterior distribution whose 95% HDI contain the true parameter (log2(3) = 1.58). However, the ADVI method, running Variational Inference, proofs to be much faster and much more accurate than the standard NUTS sampler. The presence of several layers or hyerarchies in the model gives NUTS a hard time. ADVI gets over these problems by performing an approximation that nevertheless returns very good results.
 
 As a consequence, the NUTS HDI partially overlaps the ROPE (region of practical equivalence), while the ADVI HDI clearly does not.
+
+If we use the ADVI engine to quantify 10 new proteins, we get the following results:
+
+![](plots/performance.png)
+
+The posterior  95% HDI overlaps a ROPE defined as -.4,.4 for all tested *Homo sapiens* proteins, while it does not for *E. coli* proteins, which cluster around the log2(3), the true log2FC for them.
 
 ## Introduction  
 
