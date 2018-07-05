@@ -21,73 +21,26 @@ It is achieved by performing the main following tasks:
 
 ## Scripts ##
 
-## Peptide and protein search and inference
 
+ * [Load settings](#create_settings_file.sh)
+ * [Create decoy database](#create_decoy_database.sh)
+ * [Search spectra](#search_all_mgf.sh)
+ * [Integrate and validate results](#call_peptide_shaker.sh)
+ * [MBR and Apex intensity extraction](#call_moFF.sh)
+ * [Relative quantification](#moff_to_msqrob.R)
+ * [Biological inference](#proteomic_analysis.R)
+ 
 
-## find_normalization_factors.py
+ 
+## create_settings_file.sh
 
-Replicates the "fraction normalization" algorithm implemented in MaxQuant that aggregates XICs for the same peptide
-collected across different fractions of the same sample. This is done by performing Levenberg-Marquandt (LM) minimisation
-of the squared logarithm of the peptide intensity ratio across any two samples for all samples and peptides
+## create_decoy_database.sh
 
-### Input
+## search_all_mgf.sh
 
-* A `peptide_summary_intensity_moFF_run.tab` file created by moFF
-* A `experimental_design.tsv` file storing the sample organisation
+## call_peptide_shaker.sh
 
-It takes an optional argument `--n_peps` if the user wants to minimise on less peptides than those available for debugging / speed up purposes.
-
-### Output
-
-A normalisation_factors.txt file storing the normalisation factor for sample ith in the ith row
-
-## Call
-
-`python scripts/Python/find_norm_factors.py --root_dir `pwd` --exp_name maxlfq --n_peps 1000`
-
-## aggregate_fractions.py
-
-Completes the normalization process initiated by `find_norm_factors.py` by taking the estimated root of the LM minimisation (the normalization factors)
-and aggregates  in order to remove the fraction effect.
-
-### Input
-
-* A `peptide_summary_intensity_moFF_run.tab` file created by moFF
-* A `experimental_design.tsv` file storing the sample organisation
-* A `normalization_factors.txt` file storing the solution to the LM minimisation
-
-### Output
-
-* A `peptide_summary_intensity_moFF_run_fraction_normalized.tab` file with format identical to that created by moFF but now featuring one column per experiment+replicate.
-The name of the column is built like this "{}{}".format(experiment, replicate). So the column representing data from all fractions of the sample from condition L and replicate 1
-will be called L1.
-
-## Call
-
-`python scripts/Python/aggregate_fractions.py --root_dir `pwd` --exp_name maxlfq`
-
-
-### PEPTIDE AGGREGATION
-
-## LFQ.py
-
-Replicates the LFQ algorithm implemented in MaxQuant that estimates protein abundances by minimising the global protein intensity differences based on the protein ratios.
-
-
-### Input 
-
-A `protein_ratios.txt` file, which is a matrix where
-
-- Every row represents a protein group.
-- Every column represents a comparison between 2 samples.
-- The first column (no colname) shows the ids in the protein group.
-
-This file can be obtained with process_peptide_intensities.R
-
-### Output
-
-A `protein_intensities.tsv` file, a table with one column per sample and one row per protein group
-Every i,j cell represents the quantification of group i in sample j.
+## call_moFF.sh
 
 
 ## moff_to_msqrob.R
@@ -168,6 +121,76 @@ Plots and summary statistics
 ### Call
 
 `nohup Rscript scripts/R/proteomic_analysis.R --root_dir `pwd` --exp_name maxlfq --suffix "" --log2fc_threshold 1 &`
+
+
+## Peptide and protein search and inference
+
+
+## find_normalization_factors.py
+
+Replicates the "fraction normalization" algorithm implemented in MaxQuant that aggregates XICs for the same peptide
+collected across different fractions of the same sample. This is done by performing Levenberg-Marquandt (LM) minimisation
+of the squared logarithm of the peptide intensity ratio across any two samples for all samples and peptides
+
+### Input
+
+* A `peptide_summary_intensity_moFF_run.tab` file created by moFF
+* A `experimental_design.tsv` file storing the sample organisation
+
+It takes an optional argument `--n_peps` if the user wants to minimise on less peptides than those available for debugging / speed up purposes.
+
+### Output
+
+A normalisation_factors.txt file storing the normalisation factor for sample ith in the ith row
+
+## Call
+
+`python scripts/Python/find_norm_factors.py --root_dir `pwd` --exp_name maxlfq --n_peps 1000`
+
+## aggregate_fractions.py
+
+Completes the normalization process initiated by `find_norm_factors.py` by taking the estimated root of the LM minimisation (the normalization factors)
+and aggregates  in order to remove the fraction effect.
+
+### Input
+
+* A `peptide_summary_intensity_moFF_run.tab` file created by moFF
+* A `experimental_design.tsv` file storing the sample organisation
+* A `normalization_factors.txt` file storing the solution to the LM minimisation
+
+### Output
+
+* A `peptide_summary_intensity_moFF_run_fraction_normalized.tab` file with format identical to that created by moFF but now featuring one column per experiment+replicate.
+The name of the column is built like this "{}{}".format(experiment, replicate). So the column representing data from all fractions of the sample from condition L and replicate 1
+will be called L1.
+
+## Call
+
+`python scripts/Python/aggregate_fractions.py --root_dir `pwd` --exp_name maxlfq`
+
+
+### PEPTIDE AGGREGATION
+
+## LFQ.py
+
+Replicates the LFQ algorithm implemented in MaxQuant that estimates protein abundances by minimising the global protein intensity differences based on the protein ratios.
+
+
+### Input 
+
+A `protein_ratios.txt` file, which is a matrix where
+
+- Every row represents a protein group.
+- Every column represents a comparison between 2 samples.
+- The first column (no colname) shows the ids in the protein group.
+
+This file can be obtained with process_peptide_intensities.R
+
+### Output
+
+A `protein_intensities.tsv` file, a table with one column per sample and one row per protein group
+Every i,j cell represents the quantification of group i in sample j.
+
 
 
 
