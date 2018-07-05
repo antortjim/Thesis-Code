@@ -17,15 +17,17 @@ MS-Bay - Bayesian estimation of log2(FC)
 ###  Read data for a full protemics experiment dataset
 
 ```
+# data.tsv was created running generate_model_dataset.R using the peptides.txt and proteinGroups.txt files from the MaxLFQ proteome benchmark dataset
+# It was processed using MSqRob::preprocess_MaxQuant()
 data = pd.read_csv("data/data.tsv", sep = "\t")
 data.head(10)
 ```
-![skema](../figures/MS1_intensities.png)
+![skema](figures/MS1_intensities.png)
 
 
 #### Instantiate an MsBay object
 ```
-from MSBay import MSbay
+from MSBay import MSBay
 msbay = MSBay(data, features)
 ```
 
@@ -34,18 +36,68 @@ msbay = MSBay(data, features)
 model = MsBay.compile_model(n_peptides=2)
 ```
 
-#### Load the peptides for protein P76397
+#### Load the peptides for protein P76397.
+
+Its true fold change is log2(3) = 1.58
 ```
+# An E. coli protein with 2 peptides observed.
 model.load_data("P76397")
 ```
 
-#### Compute posterior and return an MCMC trace
+#### (A) Compute posterior by using the NUTS sampler
+
+The NUTS sampler takes longer but it's guaranteed to find the true posterior at convergence, i.e given enough samples.
 ```
-trace = model.compute_posterior(model_name="P76397",n_draws=3000, n_chains=3)
+trace_nuts = msbay.sample(model_name=p,n_draws=1000, n_chains=3)
+```
+```
+Auto-assigning NUTS sampler...
+Initializing NUTS using jitter+adapt_diag...
+/home/antortjim/anaconda3/envs/bayesian/lib/python3.6/site-packages/pymc3/model.py:384: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  if not np.issubdtype(var.dtype, float):
+Multiprocess sampling (3 chains in 3 jobs)
+NUTS: [obs_offset, run_offset, treat_offset, pep_offset, mu_run, sigma_run_log__, mu_treat, sigma_treat_log__, mu_pep, sigma_pep_log__, sigma_log__, intercept]
+100%|██████████| 3000/3000 [01:56<00:00, 25.77it/s]
+There were 24 divergences after tuning. Increase `target_accept` or reparameterize.
+There were 11 divergences after tuning. Increase `target_accept` or reparameterize.
+There were 17 divergences after tuning. Increase `target_accept` or reparameterize.
+The number of effective samples is smaller than 25% for some parameters.
 ```
 
-SCREENSHOT OF pm.plot_posterior()
 
+#### (B) Compute posterior by using an approximation method (ADVI)
+
+The ADVI engine takes very little and finds a good approximation to the posterior.
+```
+trace_advi = msbay.fit(model_name=p, n_draws=40000)
+```
+
+```
+Average Loss = 192.22: 100%|██████████| 40000/40000 [00:27<00:00, 1453.28it/s]
+Finished [100%]: Average Loss = 192.24
+No handles with labels found to put in legend.
+```
+
+#### Plot the posterior probability distribution for the log2FC
+
+**NUTS**
+```
+pm.plot_posterior(trace_nuts, varnames=["estimate"], ref_val=np.log2(3), color='LightSeaGreen', rope=[-0.4, 0.4])
+plt.savefig("plots/posteriors/{}_nuts.png".format(p))
+```
+
+**ADVI**
+```
+pm.plot_posterior(trace_advi, varnames=["estimate"], ref_val=np.log2(3), color='LightSeaGreen', rope=[-0.4, 0.4])
+plt.savefig("plots/posteriors/{}_advi.png".format(p))
+``` 
+![](plots/posteriors/P76397_nuts.png)
+![](plots/posteriors/P76397_advi.png)
+
+
+Both methods return a posterior distribution whose 95% HDI contain the true parameter (log2(3) = 1.58). However, the ADVI method, running Variational Inference, proofs to be much faster and much more accurate than the standard NUTS sampler. The presence of several layers or hyerarchies in the model gives NUTS a hard time. ADVI gets over these problems by performing an approximation that nevertheless returns very good results.
+
+As a consequence, the NUTS HDI partially overlaps the ROPE (region of practical equivalence), while the ADVI HDI clearly does not.
 
 ## Introduction  
 
@@ -75,7 +127,7 @@ The tool is a new alternative to the "Protein quantification" step. Current alte
 
 Like MSqRob, this package performs relative quantification, i.e it provides an estimate of the abundance ratio between 2 conditions, but it does not provide an absolute measurement of the quantities on each one. Thus, its results can be regarded as an estimate of the log2FC, or the log2 abundance ratio between the two conditions being compared.
 
-![skema](../figures/proteomics_skema.png)
+![skema](figures/proteomics_skema.png)
 
 
 ## Implementation

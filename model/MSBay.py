@@ -157,7 +157,7 @@ class MSBay:
         with self.model:
             
             inference = pm.ADVI()
-            trace = pm.fit(method=inference).sample(n_draws)
+            trace = pm.fit(n=n_draws, method=inference).sample()
 
         plt.plot(-inference.hist, alpha=.5)
         plt.legend()
