@@ -6,6 +6,7 @@ MS-Bay - Bayesian estimation of log2(FC)
  * [Introduction](#introduction)
  * [Quantification](#quantification)
  * [Implementation](#implementation)
+  * [To-do](#to-do)
 
 ---
 
@@ -191,3 +192,10 @@ The sequence features passed should be those listed in table 3 from https://www.
 Table 3 shows the features that best performed while predicting the peptide observability.
 
 This function returns the model object.
+
+## To-do
+
+* Find better features to model the peptide variability.
+* Parallelization.
+* Benchmark on other datasets: https://github.com/statOmics/MSqRobData/tree/master/inst/extdata
+* Incorporate to pipeline.
