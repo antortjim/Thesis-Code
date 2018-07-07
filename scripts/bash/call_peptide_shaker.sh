@@ -105,6 +105,11 @@ then
    # Generate custom report including MS1 intensity
    echo "`date` call_peptide_shaker.sh Creating custom_PSM_report for sample $SAMPLE_NAME" >> $ROOT_DIR/$EXP_NAME/log/pipeline.log
    ln ${SAMPLE_NAME}_Default_PSM_Report.txt ../PSM_reports/${SAMPLE_NAME}.txt
+
+   cd ../PSM_reports
+   # Put all reports into one
+   cat *txt > Default_PSM_Report.txt
+   
    
    # #########################################
    # ## Clean reports for easy R parsing
