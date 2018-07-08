@@ -77,7 +77,7 @@ combns <- list(1:2, 3:4, 5:6) %>% lapply(function(x) combns[c(x[1], x[2])])
 
 
 i <- 1
-df_long <- data.frame(peptide=NULL, run=NULL, diff=NULL, Status=NULL, pair=NULL)
+df_long <- data.frame(peptide=NULL, run=NULL, diff=NULL, Source=NULL, pair=NULL)
 
 for(cmb in combns) {
   print(cmb)
@@ -91,7 +91,7 @@ for(cmb in combns) {
 p <- ggplot(df_long %>% filter(abs(diff) < 3.5), aes(x=run, y=diff)) +facet_wrap(facets = ~pair, ncol=3)
 
 if(color) {
-  p <- p + geom_point(aes(col=Status), size=.05)
+  p <- p + geom_point(aes(col=Source), size=.05)
 } else {
   p <- p + geom_point()
 }
@@ -186,9 +186,37 @@ q <- ggplot(data = peptide_summary_long %>% filter(peptide == peptide_ecoli),
   ggtitle(peptide_ecoli, subtitle = paste0(prot_ecoli, ", E. coli"))
 
 pp <- plot_grid(p,q+labs(y=""))
-
+pp
 ggsave(plot = pp, filename = file.path(thesis_report_dir, "plots", "peptide_profile.png"),
-       width=5.74, height=7)
+       width=7, height=4)
+
+human_maxI <- cbind(peptide_summary[x_human,1:2], ratio_apex_intensity = 
+                    (peptide_summary[x_human,h_samples] %>% apply(.,1,max)) / (peptide_summary[x_human,l_samples] %>% apply(.,1,max))
+)
+
+ecoli_maxI <- cbind(peptide_summary[x_ecoli,1:2], ratio_apex_intensity = 
+                      (peptide_summary[x_ecoli,h_samples] %>% apply(.,1,max)) / (peptide_summary[x_ecoli,l_samples] %>% apply(.,1,max))
+                    
+      )
+
+df <- rbind(cbind(human_maxI, taxon="Homo sapiens"),
+      cbind(ecoli_maxI, taxon="E. coli")
+      )
+
+df$taxon <- factor(as.character(df$taxon), levels = c("E. coli", "Homo sapiens"))
+
+ratio_boxplot <- boxplot(df$ratio_apex_intensity)
+outlier_min <- ratio_boxplot$out %>% min
+
+pp <- ggplot(data = df %>% filter(ratio_apex_intensity < outlier_min),
+       aes(x=ratio_apex_intensity, fill=taxon)) +
+  geom_density(alpha=0.5) +
+  labs(x = "Apex intensity [H/L]", y = "Density") +
+  guides(fill=guide_legend(title="Organism"))
+
+ggsave(plot = pp, filename = file.path(thesis_report_dir, "plots", "density_ratio.png"),
+       width=7, height=4)
+
 
 peptide_summary_long$prot %>% unique %>% length
 organism_check <- check_organism(proteins = peptide_summary_long$prot %>% unique,split = ", ")
