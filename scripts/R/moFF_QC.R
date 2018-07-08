@@ -10,12 +10,14 @@ rm(list = ls())
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
 exp_dir <- "thesis/genedata/maxlfq"
 input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/mbr_output")
+thesis_report_dir <- "C:/Users/aoj/OneDrive - Novozymes A S/Thesis-Report/"
 setwd(input_dir)
 
 column_names <- c("run1", "run2", "run3")
 combns <- combn(column_names, m = 2)
 combns_names <- apply(combns, 2, function(x) paste(x, collapse = "vs"))
 
+color <- T
 mbr_report_3 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3_match.txt", sep = "\t",header=T,stringsAsFactors = F)
 mbr_report_2 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_green_Frac13_2_match.txt", sep = "\t",header=T,stringsAsFactors = F)
 mbr_report_1 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_red_Frac13_1_match.txt", sep = "\t",header=T,stringsAsFactors = F)
@@ -27,7 +29,19 @@ mbr_report <- rbind(mbr_report_1, mbr_report_2, mbr_report_3)
 
 mbr_summary <- group_by(mbr_report, replicate, matched) %>% summarise(count = n())
 
-ggplot(mbr_summary, aes(x =replicate, y = count, fill=factor(matched))) + geom_bar(stat="identity", position="dodge")
+sources <- c("MS1", "MBR")
+mbr_summary$matched <- factor(ifelse(mbr_summary$matched == 0, sources[1], sources[2]),
+                              levels = rev(sources))
+
+ggplot(mbr_summary, aes(x = replicate, y = count, fill=matched)) +
+  geom_bar(stat="identity") +
+  scale_fill_viridis(discrete = T) +
+  guides(fill=guide_legend(title="Source")) +
+  labs(x="Run", y="# Identifications")
+  
+ggsave(filename = file.path(thesis_report_dir, "plots", "mbr_summary.png"),
+       width=6, height=3)
+
 
 df1 <- select(mbr_report_1, peptide, rt, replicate, matched) %>% arrange(rt)
 df1 <- df1[!duplicated(df1$peptide),]
@@ -45,7 +59,7 @@ df <- rbind(df1, df2, df3) %>%
 matched <- df %>% select(-rt) %>% spread(key = replicate, value = matched)
 
 matched_pairwise <- apply(combns, 2, function(x) matched[, x[1]] | matched[, x[2]]) %>%
-  ifelse(., "MBR", "Identified")
+  ifelse(., sources[2], sources[1])
 
 colnames(matched_pairwise) <- combns_names
 matched <- cbind(matched$peptide, matched_pairwise) %>% as.data.frame()
@@ -68,7 +82,7 @@ df_long <- data.frame(peptide=NULL, run=NULL, diff=NULL, Status=NULL, pair=NULL)
 for(cmb in combns) {
   print(cmb)
   df_sub <- cbind(df[, c("peptide", cmb[1])], diffs[,i], matched_pairwise[, i], colnames(diffs)[i])
-  colnames(df_sub)[2:5] <- c("run", "diff", "Status", "pair")
+  colnames(df_sub)[2:5] <- c("run", "diff", "Source", "pair")
   df_long <- rbind(df_long, df_sub)
   i <- i + 1
 }
@@ -77,7 +91,7 @@ for(cmb in combns) {
 p <- ggplot(df_long %>% filter(abs(diff) < 3.5), aes(x=run, y=diff)) +facet_wrap(facets = ~pair, ncol=3)
 
 if(color) {
-  p <- p + geom_point(aes(col=Status), size=1)
+  p <- p + geom_point(aes(col=Status), size=.05)
 } else {
   p <- p + geom_point()
 }
@@ -89,20 +103,117 @@ p <- p + labs(y = "Retention time diff between runs [min]")
 p <- p + theme(legend.position = "top")
 p
 
-ggsave(filename = file.path("C:/Users/aoj/Desktop/Thesis-Report/", "plots", "mbr.png"),
-       width=5.74, height=7)
+ggsave(filename = file.path(thesis_report_dir, "plots", "mbr.png"),
+       width=6, height=3)
 
 
 rm(list=ls())
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
 exp_dir <- "thesis/genedata/maxlfq"
 input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/mbr_output")
+thesis_report_dir <- "C:/Users/aoj/OneDrive - Novozymes A S/Thesis-Report/"
+source(file.path(home_dir, "thesis", "genedata", "scripts", "R", "check_organism.R"))
+
 
 setwd(file.path(home_dir, exp_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/"))
+# 
+# apex_report_3 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3_match_moff_result.txt", sep = "\t",header=T,stringsAsFactors = F)
+# apex_report_2 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_green_Frac13_2_match_moff_result.txt", sep = "\t",header=T,stringsAsFactors = F)
+# apex_report_1 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_red_Frac13_1_match_moff_result.txt", sep = "\t",header=T,stringsAsFactors = F)
+# apex_report_1$replicate <- "run1"
+# apex_report_2$replicate <- "run2"
+# apex_report_3$replicate <- "run3"
 
-apex_report_3 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3_match_moff_result.txt", sep = "\t",header=T,stringsAsFactors = F)
-apex_report_2 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_green_Frac13_2_match_moff_result.txt", sep = "\t",header=T,stringsAsFactors = F)
-apex_report_1 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_red_Frac13_1_match_moff_result.txt", sep = "\t",header=T,stringsAsFactors = F)
-apex_report_1$replicate <- "run1"
-apex_report_2$replicate <- "run2"
-apex_report_3$replicate <- "run3"
+exp_design <- read.table(file = file.path(home_dir, exp_dir, "data", "experimental_design.tsv"),header=T)
+peptide_summary <- read.table(file = "peptide_summary_intensity_moFF_run.tab", sep = "\t",header=T,stringsAsFactors = F)
+peptide_summary_long <- peptide_summary %>% gather(key = "Name", value = "apex_intensity", -peptide, -prot)
+peptide_summary_long$Name <- peptide_summary_long$Name %>% gsub(pattern = "sumIntensity_", replacement = "", x = .)
+
+peptide_summary_long <- left_join(peptide_summary_long, select(exp_design, Name, Experiment, Replicate, Fraction), by = "Name") %>%
+  select(-Name)
+
+# df1 <-   group_by(peptide_summary_long, Experiment, Replicate, Fraction) %>% summarise(count = sum(apex_intensity==0))
+# df1$Status <- "missing"
+
+df <- group_by(peptide_summary_long, Experiment, Replicate, Fraction) %>% summarise(q = 100*sum(apex_intensity!=0)/length(apex_intensity))
+df <- group_by(peptide_summary_long, Experiment, Replicate, Fraction) %>% summarise(q = sum(apex_intensity!=0))
+
+# df2$Status <- "available"
+
+# df <- rbind(df1, df2)
+
+ggplot(data = df, aes(xmin=Fraction-0.5, xmax=Fraction+0.5,
+                      ymin=Replicate-0.5, ymax=Replicate+0.5,
+                      fill=q)) +
+  facet_wrap(~Experiment, nrow=2) +
+  geom_rect() +
+  scale_fill_distiller(direction=1)
+
+
+l_samples <- grep(pattern = "Ecoli10", colnames(peptide_summary))
+h_samples <- grep(pattern = "Ecoli30", colnames(peptide_summary))
+
+
+x <- peptide_summary[
+  rowSums(peptide_summary[,h_samples] == 0) > 3 &
+  rowSums(peptide_summary[,l_samples] == 0) > 3
+    ,"peptide"]
+
+ratio <- (peptide_summary[,h_samples] %>% apply(.,1,max))  / (peptide_summary[,l_samples] %>% apply(.,1,max))
+x_human <- ratio > 0.5 & ratio < 2 & !is.infinite(ratio)
+x_ecoli <- ratio > 2 & !is.infinite(ratio)
+
+
+peptide_human <- sample(peptide_summary[x_human, "peptide"], 1)
+prot_human <- filter(peptide_summary, peptide == peptide_human) %>% .$prot %>%
+  strsplit(., split = ", ") %>% unlist %>% .[1]
+
+p <- ggplot(data = peptide_summary_long %>% filter(peptide == peptide_human),
+       aes(Fraction, y = apex_intensity, group=Replicate)) +
+  facet_wrap(~Experiment, nrow=2) +
+  geom_line(col="blue") +
+  labs("MS1 Apex intensity") +
+  ggtitle(peptide_human, subtitle = paste0(prot_human, ", Homo sapiens"))
+
+peptide_ecoli <- sample(peptide_summary[x_ecoli, "peptide"], 1)
+prot_ecoli <- filter(peptide_summary, peptide == peptide_ecoli) %>% .$prot %>%
+  strsplit(., split = ", ") %>% unlist %>% .[1]
+
+q <- ggplot(data = peptide_summary_long %>% filter(peptide == peptide_ecoli),
+       aes(Fraction, y = apex_intensity, group=Replicate)) +
+  facet_wrap(~Experiment, nrow=2) +
+  geom_line(col="red") +
+  ggtitle(peptide_ecoli, subtitle = paste0(prot_ecoli, ", E. coli"))
+
+pp <- plot_grid(p,q+labs(y=""))
+
+ggsave(plot = pp, filename = file.path(thesis_report_dir, "plots", "peptide_profile.png"),
+       width=5.74, height=7)
+
+peptide_summary_long$prot %>% unique %>% length
+organism_check <- check_organism(proteins = peptide_summary_long$prot %>% unique,split = ", ")
+
+taxonomy <- data.frame(taxon = organism_check[[2]], prot = unique(peptide_summary_long$prot))
+peptide_summary_long <- left_join(peptide_summary_long, taxonomy, by="prot")
+
+peptide_summary_long <- peptide_summary_long %>% filter(!is.na(taxon))
+
+filter_peps <- peptide_summary_long %>% group_by(Experiment, peptide) %>% summarise(count=n())
+filter_peps <- filter_peps %>% select(-count)
+peptide_h <- filter_peps %>% filter(Experiment == "H") %>% .$peptide
+peptide_l <- filter_peps %>% filter(Experiment == "L") %>% .$peptide
+
+peptides <- peptide_h[peptide_h %in% peptide_l]
+
+
+plot_data <- peptide_summary_long %>% filter(peptide %in% peptides)
+
+plot_data %>% group_by(Experiment, taxon) %>% summarise(count = n()) %>% arrange(taxon)
+
+ggplot(plot_data, aes(x=apex_intensity, fill = Experiment)) +
+  # geom_histogram(bins=100)
+  geom_density(alpha=0.5) +
+  scale_x_continuous(trans = "log2") +
+  facet_wrap(~taxon)
+  
+

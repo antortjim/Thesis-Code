@@ -3,6 +3,7 @@ library("optparse")
 library("ggplot2")
 library("readxl")
 library("stringr")
+library(xtable)
 
 home_dir <- ifelse(Sys.info()["sysname"] == "Linux", "/z/home/aoj", "//hest/aoj")
 option_list = list(
@@ -60,9 +61,6 @@ for (filename in files) {
   data_list[[i]] <- read_ms(filename)
   i <- i + 1
 }
-
-
-
 
 data <- do.call(rbind, data_list)
 data <- data %>% full_join(experimental_design, by = "Name")
