@@ -2,6 +2,7 @@ library("MSqRob")
 library("dplyr")
 library("optparse")
 library("MSnbase")
+library("latex2exp")
 
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
 option_list <- list(
@@ -36,17 +37,16 @@ experiment_contrasts <- opt$experiment_contrasts
 experiment_contrasts <- ifelse(exp_name == "thp1", "conditionpLPS_pellet-conditionmLPS_pellet", experiment_contrasts)
 save_model <- opt$save_model
 suffix <- opt$suffix
-fraction_normalized <- opt$fraction_normalized
+fraction_normalized <- ifelse(exp_name == "maxlfq", FALSE, opt$fraction_normalized)
 smallest_unique_groups <- opt$smallest_unique_groups
-normalisation <- opt$normalisation
+normalisation <- ifelse(opt$normalisation == "thp1", opt$normalisation, "none")
 moff_file <- ifelse(fraction_normalized, "peptide_summary_intensity_moFF_run_fraction_normalized.tab", "peptide_summary_intensity_moFF_run.tab")
 fraction_normalized <- ifelse(exp_name == "thp1", F, fraction_normalized)
+#To which folder do you want to export the Excel file(s) and the saved model file (if you chose to do so)? Please do not use a trailing "/" here!
+export_folder <- file.path(root_dir, exp_name, "quantification")
+
 
 output_moff <- file.path(root_dir, exp_name, "peptideShaker_out/PSM_reports/output_moff_RAW")
-
-print("Importing MSnSet")
-peptides_msnset <- import2MSnSet(file = file.path(output_moff, moff_file),
-                          filetype = "moFF")
 
 exp_annot <- read.table(file.path(root_dir, exp_name, "data", "experimental_design.tsv"), header = T) %>%
   select(-Group)
@@ -61,11 +61,52 @@ if(fraction_normalized) {
   exp_annot$run <- factor(paste0(exp_annot$condition, exp_annot$rep))
 }
 
+
+if(exp_name != "maxlfq") {
+
+print("Importing MSnSet")
+  
+#### EXPERIMENT
+moff_data <- read.table(file.path(output_moff, moff_file), header=T, sep = "\t")
+
+apex_data <- moff_data[,-(1:2)]
+colnames(apex_data) <- colnames(apex_data) %>% gsub(pattern = "sumIntensity_", replacement = "")
+
+conds <- c("H", "L")
+reps <- exp_annot$rep %>% unique %>% as.integer
+
+max_aggregation <- data.frame(peptide = moff_data[,1], prot = moff_data[,2])
+for (cond in conds) {
+  for (repl in reps) {
+    sample_name <- paste0(cond, repl)
+    print(sample_name)
+    max_aggregation[,sample_name] <- apply(apex_data[,(exp_annot %>% filter(condition==cond, rep == repl) %>% .$run)], 1, max)
+  }
+}
+colnames(max_aggregation)[-(1:2)] <- paste0("sumIntensity_", colnames(max_aggregation)[-(1:2)])
+moff_file <- "peptide_summary_intensity_moFF_run_max.tab"
+suffix <- "_max"
+
+exp_annot <- exp_annot %>% filter(fraction == 1) %>% select(condition, rep)
+exp_annot$run <- factor(paste0(exp_annot$condition, exp_annot$rep))
+
+write.table(x = max_aggregation, file.path(output_moff, moff_file), col.names = T, sep = "\t", quote=F, row.names=F)
+# write.table(x = max_aggregation, file.path(moff_file), col.names = T, sep = "\t", quote=F, row.names=F)
+
+
+#### EXPERIMENT
+peptides_msnset <- import2MSnSet(file = file.path(output_moff, moff_file),
+                          filetype = "moFF")
+
+
 print("Preprocessing MSnSet")
 # Takes the log2 of the intensities, performs quantile.normalisation,
 # adds the experimental annotation, removes peptides identified in only 1 sample
 # solves the protein inference problem by taking the smallestUniqueGroups i.e
 # if a protein appears in several protein groups, only the smallest one is kept
+
+
+  
 peptides_msnset_processed <- preprocess_MSnSet(MSnSet = peptides_msnset,
                                             accession = "prot",
                                             exp_annotation = exp_annot,
@@ -85,10 +126,6 @@ fixed <- c("condition")
 random <- c("peptide")
 if(fraction_normalized) {random <- c(random, "fraction"); print("Adding fraction as random effect")}
 
-
-
-#To which folder do you want to export the Excel file(s) and the saved model file (if you chose to do so)? Please do not use a trailing "/" here!
-export_folder <- file.path(root_dir, exp_name, "quantification")
 
 #Construct the contrast matrix L for testing on the fold changes of interest (i.e. our research hypotheses)
 L <- makeContrast(contrasts=experiment_contrasts,
@@ -123,7 +160,8 @@ write.table(x = RSqM_adjust, file = file.path(export_folder, paste0("RSqM_adjust
             sep = "\t", col.names = T, row.names = F, quote = F)
 
 
-write.table(x = RSqM_signif, file = file.path(export_folder, paste0("RSqM_signif", suffix, ".tsv")),
+write.table(x = RSqM_signif, file = file.path(paste0("RSqM_signif", suffix, ".tsv")),
+# write.table(x = RSqM_signif, file = file.path(export_folder, paste0("RSqM_signif", suffix, ".tsv")),
             sep = "\t", col.names = T, row.names = F, quote = F)
 
 
@@ -138,4 +176,7 @@ if(isTRUE(save_model)){
   result_files$random <- random
   saves_MSqRob(result_files, file=file.path(export_folder,"model.RDatas"), overwrite=TRUE)
   print("Model saved")
+}
+
+}else {
 }

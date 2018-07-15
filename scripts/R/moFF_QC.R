@@ -5,6 +5,9 @@ library("viridis")
 library("cowplot")
 library("tidyr")
 library(Cairo)
+library(latex2exp)
+
+
 theme_set(theme_bw())
 rm(list = ls())
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
@@ -13,17 +16,18 @@ input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/PSM_reports/output
 thesis_report_dir <- "C:/Users/aoj/OneDrive - Novozymes A S/Thesis-Report/"
 setwd(input_dir)
 
-column_names <- c("run1", "run2", "run3")
+column_names <- paste0("Run ", 1:3)
+
 combns <- combn(column_names, m = 2)
-combns_names <- apply(combns, 2, function(x) paste(x, collapse = "vs"))
+combns_names <- apply(combns, 2, function(x) paste(x, collapse = " - "))
 
 color <- T
 mbr_report_3 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3_match.txt", sep = "\t",header=T,stringsAsFactors = F)
 mbr_report_2 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_green_Frac13_2_match.txt", sep = "\t",header=T,stringsAsFactors = F)
 mbr_report_1 <- read.table(file = "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_red_Frac13_1_match.txt", sep = "\t",header=T,stringsAsFactors = F)
-mbr_report_1$replicate <- "run1"
-mbr_report_2$replicate <- "run2"
-mbr_report_3$replicate <- "run3"
+mbr_report_1$replicate <- column_names[1]
+mbr_report_2$replicate <- column_names[2]
+mbr_report_3$replicate <- column_names[3]
 
 mbr_report <- rbind(mbr_report_1, mbr_report_2, mbr_report_3)
 
@@ -33,12 +37,19 @@ sources <- c("MS1", "MBR")
 mbr_summary$matched <- factor(ifelse(mbr_summary$matched == 0, sources[1], sources[2]),
                               levels = rev(sources))
 
-ggplot(mbr_summary, aes(x = replicate, y = count, fill=matched)) +
+run_labels <- 1:3
+names(run_labels) <- column_names
+
+ggplot(mbr_summary, aes(x = replicate, y = count/1e3, fill=matched)) +
   geom_bar(stat="identity") +
   scale_fill_viridis(discrete = T) +
   guides(fill=guide_legend(title="Source")) +
-  labs(x="Run", y="# Identifications")
-  
+  labs(x="Run", y=TeX("# 10^3 Matches")) +
+  scale_x_discrete(labels=run_labels) +
+  theme_bw(base_size=20)
+
+
+
 ggsave(filename = file.path(thesis_report_dir, "plots", "mbr_summary.png"),
        width=6, height=3)
 
@@ -70,7 +81,7 @@ df <- df %>% spread(key = replicate, value = rt)
 # df <- df[complete.cases(df),]
 df <- cbind(df, matched)
 
-diffs <- apply(combns, 2, function(x) df[,x[2]] - df[,x[1]]) %>% as.data.frame
+diffs <- apply(combns, 2, function(x) df[,x[1]] - df[,x[2]]) %>% as.data.frame
 colnames(diffs) <- combns_names
 
 combns <- list(1:2, 3:4, 5:6) %>% lapply(function(x) combns[c(x[1], x[2])])
@@ -88,7 +99,12 @@ for(cmb in combns) {
 }
 
 
-p <- ggplot(df_long %>% filter(abs(diff) < 3.5), aes(x=run, y=diff)) +facet_wrap(facets = ~pair, ncol=3)
+
+p <- ggplot(df_long %>% filter(abs(diff) < 3.5), aes(x=run, y=diff)) + 
+  facet_wrap(
+    facets = ~pair, ncol=3
+  )
+p
 
 if(color) {
   p <- p + geom_point(aes(col=Source), size=.05)
@@ -98,13 +114,15 @@ if(color) {
 
 p <- p + geom_hline(yintercept = 0, linetype="dashed") +
   viridis::scale_color_viridis(discrete=T)
-p <- p + labs(x = "Retention time in first MS run [min]")
-p <- p + labs(y = "Retention time diff between runs [min]")
+p <- p + labs(x = "RT in first MS run [min]")
+p <- p + labs(y = "RT diff btw. runs [min]")
+p <- p + theme_bw(base_size=20)
+p <- p + guides(col = guide_legend(override.aes = list(size = 5)))
 p <- p + theme(legend.position = "top")
+p <- p + coord_cartesian(ylim = c(-2,2))
 p
-
 ggsave(filename = file.path(thesis_report_dir, "plots", "mbr.png"),
-       width=6, height=3)
+       width=6, height=5)
 
 
 rm(list=ls())
@@ -185,7 +203,7 @@ q <- ggplot(data = peptide_summary_long %>% filter(peptide == peptide_ecoli),
   geom_line(col="red") +
   ggtitle(peptide_ecoli, subtitle = paste0(prot_ecoli, ", E. coli"))
 
-pp <- plot_grid(p,q+labs(y=""))
+pp <- plot_grid(p+labs(y="Apex intensity"),q+labs(y=""))
 pp
 ggsave(plot = pp, filename = file.path(thesis_report_dir, "plots", "peptide_profile.png"),
        width=7, height=4)
@@ -211,8 +229,10 @@ outlier_min <- ratio_boxplot$out %>% min
 pp <- ggplot(data = df %>% filter(ratio_apex_intensity < outlier_min),
        aes(x=ratio_apex_intensity, fill=taxon)) +
   geom_density(alpha=0.5) +
-  labs(x = "Apex intensity [H/L]", y = "Density") +
-  guides(fill=guide_legend(title="Organism"))
+  labs(x = "Apex intensity ratio [H/L]", y = "Density") +
+  guides(fill=guide_legend(title="Organism")) + theme(legend.position="bottom") +
+  scale_x_continuous(breaks = seq(0, ceiling(outlier_min), 1))
+pp
 
 ggsave(plot = pp, filename = file.path(thesis_report_dir, "plots", "density_ratio.png"),
        width=7, height=4)

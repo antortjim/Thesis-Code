@@ -9,9 +9,14 @@ home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/ao
 exp_dir <- "thesis/genedata/maxlfq"
 input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/reports")
 #reports <- read.table(file.path(input_dir, "Default_PSM_Report.txt"), sep = "\t", header=T)
-sample_name <- "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3_Extended_PSM_Report"
+sample_name <- "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3"
 
-reports <- read.table(file.path(input_dir, paste0(sample_name, ".txt")), sep = "\t", header=T, stringsAsFactors = F)
+reports <- read.table(file.path(input_dir, paste0(sample_name, "_Extended_PSM_Report", ".txt")),
+                      sep = "\t", header=T, stringsAsFactors = F)
+
+
+
+
 reports$Validation <- factor(reports$Validation, levels = rev(c("Confident", "Doubtful", "Not Validated")))
 
 colnames(reports)[19] <- "mz_error_ppm"
@@ -55,35 +60,73 @@ setwd("C:/Users/aoj/Desktop/peptideShaker")
 
 ## Read PS report
 #####################################
-filename <- "Custom_PSM.txt"
-custom_report <- read.table(
- filename,
- stringsAsFactors = F, sep = "\t", fill=T, comment.char = "#", skip=1
- )
 
-column_names <- strsplit(readLines(filename,n = 1), split = "\\t") %>% unlist
-column_names <- column_names %>% gsub(pattern = "\\#", replacement = "")
+custom_report <- read.table(file.path(input_dir, paste0(sample_name, "_Custom_PSM", ".txt")),
+                      sep = "\t", header=T, stringsAsFactors = F)
+
+
+custom_report <- custom_report[, -1]
+column_names <- colnames(custom_report)[-1]
+custom_report <- custom_report[, -ncol(custom_report)]
 colnames(custom_report) <- column_names
 
-custom_report[, "Algorithm Score"] <- custom_report[, "Algorithm Score"] %>%
+# custom_report %>% filter(Spectrum.Title == "mzspec:PXD000279:20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3.RAW:scan:10000")
+                         
+custom_report[, "Algorithm.Score"] <- custom_report[, "Algorithm.Score"] %>%
   str_match(string = ., pattern = "MS-GF\\+ \\((\\d\\.\\d*.*)\\)") %>% .[,2] %>% as.numeric
-custom_report <- custom_report %>% rename(score = `Algorithm Score`, confidence = `Algorithm Confidence [%]`)
-custom_report <- custom_report[, -(c(1, ncol(custom_report)))]
+colnames(custom_report)[grep(pattern = "Confidence", x = colnames(custom_report))] <- "Confidence"
+colnames(custom_report)[grep(pattern = "Score", x = colnames(custom_report))] <- "Score"
 
-## Process MS-GF+ scores
-#####################################
-custom_report$score <- -log(custom_report$score)
-custom_report$score <- custom_report$score + 100 - max(custom_report$score)
+custom_report$Decoy <- factor(ifelse(custom_report$Decoy == 0, "Target", "Decoy"),
+                              levels=c("Target", "Decoy"))
+
+custom_report <- select(custom_report, Protein.s., Measured.Charge, Spectrum.Title, RT, m.z, Score, Confidence, Decoy, Validation)
+
+custom_report$mlogScore <- -log(custom_report$Score)
+
+custom_report_best <- custom_report %>% group_by(Spectrum.Title, Decoy) %>%
+  slice(which.max(mlogScore))
+
+temp <- (custom_report_best$Spectrum.Title %>% table)
+# random_duplicate <- sample(temp[temp > 2] %>% names, 1)
+# custom_report_best %>% filter(Spectrum.Title == random_duplicate)
+
+
+
+facet_names <- c(
+  `TRUE` = "PSM >2+",
+  `FALSE` = "PSM 2+"
+)
+
+ggplot(data = custom_report_best, aes(x = mlogScore, fill=factor(Decoy))) +
+  geom_histogram(position="dodge", bins=20) +
+  guides(fill=guide_legend(title="Database")) +
+  scale_fill_manual(values = c("#7dcb72", "#ff0000")) + 
+  facet_wrap(~(Measured.Charge != "2+"), labeller = as_labeller(facet_names)) +
+  labs(y = "Frequency (absolute)")
+
+#######
+
+predictions <- custom_report %>% select(Score, Decoy)
+predictions$pred <- predictions$Score * 1/max(predictions$Score)
+
+source("https://raw.githubusercontent.com/joyofdata/joyofdata-articles/master/roc-auc/plot_pred_type_distribution.R")
+
+predictions$survived <- ifelse(predictions$Decoy == "Target",0, 1)
+plot_pred_type_distribution(predictions, 0.7)
+
 
 ## Find the score of the first validated hit.
 ## This value is the threshold set by PeptideShaker
-custom_report <- custom_report %>% arrange(score)
-xintercept <- custom_report[which(custom_report$Validation != "Not Validated")[1],"score"]
+custom_report_best <- custom_report_best %>% arrange(-Score)
+xintercept <- custom_report[which(custom_report_best$Validation != "Not Validated")[1],]
+xintercept <- xintercept$mlogScore
 
-ggplot(data = custom_report %>% filter(`Identification Charge` == "2+"), aes(x=score, y=confidence)) + geom_line(col="blue") +
+ggplot(data = custom_report_best %>% filter(Measured.Charge == "2+"),
+       mapping = aes(x=mlogScore, y=Confidence)) + geom_line(col="blue") +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,by=5)) +
   scale_x_continuous(limits = c(0, 100), breaks = seq(0, 100, by=10)) +
-  geom_vline(xintercept = xintercept, color="red", size=1) +
+  geom_vline(xintercept = -log(xintercept), color="red", size=1) +
   labs(x="Score", y = "Confidence  [%]") +
   ggtitle("Score vs. Confidence") +
   theme_bw()
