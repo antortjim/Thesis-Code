@@ -14,10 +14,14 @@ home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
                    ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj",
                           "/home/antortjim/"))
 
-data
-exp_dir <- "thesis/genedata/maxlfq"
-input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/mbr_output")
-thesis_report_dir <- "C:/Users/aoj/OneDrive - Novozymes A S/Thesis-Report/"
+
+data_dir <- ifelse(Sys.info()["user"] == "aoj", "thesis/genedata/maxlfq/",
+                   "MEGA/Master/Thesis/Code/scripts/data")
+
+input_dir <- file.path(home_dir, data_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/mbr_output")
+thesis_report_dir <- file.path(home_dir, ifelse(Sys.info()["sysname"] == "Windows",
+                                                "OneDrive - Novozymes A S/Thesis-Report/",
+                                                "MEGA/Master/Thesis/Report"))
 setwd(input_dir)
 
 column_names <- paste0("Run ", 1:3)
