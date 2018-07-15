@@ -5,17 +5,27 @@ from theano import shared
 import shutil
 import os
 from exp_annot_funcs import *
+import sys
 
 
 class MSBay:
 
     "Compile a MS-Bay model, load data into it and infer the posterior"
 
-    def __init__(self, data, features):
+    def __init__(self, data, features=None):
        self.data = data
        self.features = features
 
-    def compile_model(self, n_peptides, hierarchical_center=False, sequence=False):
+    def compile_model(self, n_peptides, hierarchical_center=False):
+
+
+        if self.features is None:
+             sequence=False
+        elif isinstance(self.features, pd.DataFrame):
+             sequence = True
+        else:
+             sys.exit("Please set features to either None or a pd.DataFrame")
+
 
         self.observed_sh  = shared(np.array([0.,]*6*n_peptides))
         self.feats_sh  = shared(np.array([[0.,]*9,]*n_peptides))
@@ -166,15 +176,28 @@ class MSBay:
         plt.xlabel('iteration');
         plt.savefig("plots/ELBO/{}".format(model_name))
         plt.close()
+
+
+        try:
+            os.mkdir("traces/{}".format(model_name))
+        except:
+            print("Dir exists")
+        df=pd.DataFrame({"estimate": trace["estimate"][:,0,0]})
+        df.to_csv("traces/{}/chain-0.tsv".format(model_name))
         
         return trace
     
-    def load_data(self, p):
+    def load_data(self, p, top=3):
     
-        variables = create_variables(self.data, self.features, [p])
+        df = pd.DataFrame({"std": np.std(self.data.loc[self.data.protein == p,:].iloc[:,2:5].values, axis=1) + np.std(self.data.loc[self.data.protein == p,:].iloc[:,5:8].values, axis=1)})
+        best_data = self.data.loc[self.data.protein == p,:].iloc[df.sort_values(by="std", ascending=True).iloc[:top,:].index,:]
+        variables = create_variables(best_data, self.features, [p])
         observed, feats, x_treat, x_pep, x_run, x_estimate = variables
+
         self.observed_sh.set_value(observed)
-        self.feats_sh.set_value(feats)    
+        if feats is not None:
+            self.feats_sh.set_value(feats)    
+
         self.x_treat_sh.set_value(x_treat)
         self.x_pep_sh.set_value(x_pep)
         self.x_run_sh.set_value(x_run)

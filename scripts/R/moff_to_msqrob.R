@@ -6,7 +6,7 @@ library("MSnbase")
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
 option_list <- list(
   make_option(c("--root_dir"), type="character", default=file.path(home_dir, "thesis", "genedata")),
-  make_option(c("--exp_name"), type="character", default="thp1"),
+  make_option(c("--exp_name"), type="character", default="maxlfq"),
   make_option(c("--moff_file"), type="character", default="peptide_summary_intensity_moFF_run.tab"),
   make_option(c("--sample_filter"), type="character", default=""),
   make_option(c("--experiment_contrasts"), type="character", default="conditionH-conditionL",

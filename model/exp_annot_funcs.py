@@ -75,14 +75,16 @@ def create_x_estimate(n_proteins):
     return x_estimate
     
 
-def create_variables(data, features, proteins):
-    data_p=data.loc[data.protein.isin(proteins),:]
+def create_variables(data_p, features, proteins):
     indices = data_p.index
-    features_p = features.iloc[indices,:].values
+    if features is None:
+        features_p = None
+    else:
+        features_p = features.iloc[indices,:].values
+        n_features = features_p.shape[1]
 
     n_peptides = len(indices)
     n_proteins = len(proteins)
-    n_features = features_p.shape[1]
 
     observed=data_p.values[:,2:].flatten().astype(float)
     #log2fc = np.array([0,0,0, log2fc, log2fc, log2fc,]*n_peptides)
@@ -93,7 +95,7 @@ def create_variables(data, features, proteins):
 
     return (observed, features_p, x_treat, x_pep, x_run, x_estimate)
 
-def load_stats(data, features, proteins):
+def load_stats(data_p, features, proteins):
     data_p=data.loc[data.protein.isin(proteins),:]
     
     observed=data_p.values[:,2:]
