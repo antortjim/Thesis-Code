@@ -4,7 +4,19 @@ library("optparse")
 library("MSnbase")
 library("latex2exp")
 
-home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
+
+home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
+                   ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj",
+                          "/home/antortjim/"))
+
+
+data_dir <- ifelse(Sys.info()["user"] == "aoj", "thesis/genedata/maxlfq/",
+                   "MEGA/Master/Thesis/Code/scripts/data")
+
+exp_dir <-  ifelse(Sys.info()["sysname"] == "Windows",
+                   file.path(root_dir, exp_name),
+                   file.path(home_dir, data_dir))
+
 option_list <- list(
   make_option(c("--root_dir"), type="character", default=file.path(home_dir, "thesis", "genedata")),
   make_option(c("--exp_name"), type="character", default="maxlfq"),
@@ -39,16 +51,28 @@ save_model <- opt$save_model
 suffix <- opt$suffix
 fraction_normalized <- ifelse(exp_name == "maxlfq", FALSE, opt$fraction_normalized)
 smallest_unique_groups <- opt$smallest_unique_groups
-normalisation <- ifelse(opt$normalisation == "thp1", opt$normalisation, "none")
+normalisation <- ifelse(opt$normalisation != "maxlfq", opt$normalisation, "none")
+normalisation <- opt$normalisation
+
 moff_file <- ifelse(fraction_normalized, "peptide_summary_intensity_moFF_run_fraction_normalized.tab", "peptide_summary_intensity_moFF_run.tab")
 fraction_normalized <- ifelse(exp_name == "thp1", F, fraction_normalized)
 #To which folder do you want to export the Excel file(s) and the saved model file (if you chose to do so)? Please do not use a trailing "/" here!
-export_folder <- file.path(root_dir, exp_name, "quantification")
+export_folder <-  ifelse(Sys.info()["sysname"] == "Windows",
+                         file.path(exp_dir, "quantification"),
+                         exp_dir
+)
 
 
-output_moff <- file.path(root_dir, exp_name, "peptideShaker_out/PSM_reports/output_moff_RAW")
+output_moff <- ifelse(Sys.info()["sysname"] == "Windows",
+                   file.path(exp_dir, "peptideShaker_out/PSM_reports/output_moff_RAW"),
+                   file.path(exp_dir, "output_moFF_RAW")
+                   )
 
-exp_annot <- read.table(file.path(root_dir, exp_name, "data", "experimental_design.tsv"), header = T) %>%
+exp_annot <- read.table(file.path(
+  ifelse(Sys.info()["sysname"] == "Windows",
+         file.path(root_dir, exp_name, "data"),
+         exp_dir),
+  "experimental_design.tsv"), header = T) %>%
   select(-Group)
 
 colnames(exp_annot) <- c("run", "fraction", "condition", "rep")
@@ -61,8 +85,6 @@ if(fraction_normalized) {
   exp_annot$run <- factor(paste0(exp_annot$condition, exp_annot$rep))
 }
 
-
-if(exp_name != "maxlfq") {
 
 print("Importing MSnSet")
   
@@ -93,7 +115,6 @@ exp_annot$run <- factor(paste0(exp_annot$condition, exp_annot$rep))
 write.table(x = max_aggregation, file.path(output_moff, moff_file), col.names = T, sep = "\t", quote=F, row.names=F)
 # write.table(x = max_aggregation, file.path(moff_file), col.names = T, sep = "\t", quote=F, row.names=F)
 
-
 #### EXPERIMENT
 peptides_msnset <- import2MSnSet(file = file.path(output_moff, moff_file),
                           filetype = "moFF")
@@ -116,67 +137,76 @@ peptides_msnset_processed <- preprocess_MSnSet(MSnSet = peptides_msnset,
                                             useful_properties = c("prot", "peptide"),
                                             minIdentified = 2)
 
-print("Compiling protdata object")
-proteins_protdata <- MSnSet2protdata(peptides_msnset_processed, accession="prot")
 
-#Fixed effects
-fixed <- c("condition")
-
-#Random effects, for label-free data, it is best to always keep "Sequence"
-random <- c("peptide")
-if(fraction_normalized) {random <- c(random, "fraction"); print("Adding fraction as random effect")}
-
-
-#Construct the contrast matrix L for testing on the fold changes of interest (i.e. our research hypotheses)
-L <- makeContrast(contrasts=experiment_contrasts,
-                  levels=strsplit(experiment_contrasts, split = "-") %>% unlist)
-
-#Set the significance threshold (default: 5% FDR)
-# FDRlevel <- 0.05
-
-print("Fitting ridge regression model with Huber weights and empirical Bayes estimation of variance")
-
-system.time(model_RR <- fit.model(protdata=proteins_protdata,
-                                  response="quant_value",
-                                  fixed=fixed, random=random,
-                                  shrinkage.fixed=NULL,
-                                  weights="Huber",
-                                  squeezeVar=TRUE))
-
-print(paste0("Model fit for n proteins: ", length(model_RR)))
-
-
-print("Performing hypothesis testing")
-RSqM <- test.protLMcontrast(model_RR, L)
-print("Multiple testing correction")
-RSqM_adjust <- prot.p.adjust(RSqM)
-RSqM_signif <- prot.signif(RSqM_adjust)
-RSqM_signif$Protein.IDs <- rownames(RSqM_signif)
-print("DONE")
-print(paste0("Saving results to ", export_folder))
-
-
-write.table(x = RSqM_adjust, file = file.path(export_folder, paste0("RSqM_adjust", suffix, ".tsv")),
-            sep = "\t", col.names = T, row.names = F, quote = F)
-
-
-write.table(x = RSqM_signif, file = file.path(paste0("RSqM_signif", suffix, ".tsv")),
-# write.table(x = RSqM_signif, file = file.path(export_folder, paste0("RSqM_signif", suffix, ".tsv")),
-            sep = "\t", col.names = T, row.names = F, quote = F)
-
-
-#If you chose to save the model, save it
-if(isTRUE(save_model)){
-  print("Saving model")
-  result_files <- list()
-  result_files$proteins <- proteins_protdata
-  result_files$models <- model_RR
-  result_files$levelOptions <- rownames(L)
-  result_files$fixed <- fixed
-  result_files$random <- random
-  saves_MSqRob(result_files, file=file.path(export_folder,"model.RDatas"), overwrite=TRUE)
-  print("Model saved")
+MSqRob_quantification <- function(peptides_msnset_processed, fraction_normalized=FALSE, experiment_contrasts, save_model=FALSE) {
+  print("Compiling protdata object")
+  proteins_protdata <- MSnSet2protdata(peptides_msnset_processed, accession="prot") & system('notify-send "Done"')
+  proteins_protdata_none <- MSnSet2protdata(peptides_msnset_processed_none, accession="prot") & system('notify-send "Done"')
+  
+  #Fixed effects
+  fixed <- c("condition")
+  
+  #Random effects, for label-free data, it is best to always keep "Sequence"
+  random <- c("peptide")
+  if(!fraction_normalized) {random <- c(random, "fraction"); print("Adding fraction as random effect")}
+  
+  
+  #Construct the contrast matrix L for testing on the fold changes of interest (i.e. our research hypotheses)
+  L <- makeContrast(contrasts=experiment_contrasts,
+                    levels=strsplit(experiment_contrasts, split = "-") %>% unlist)
+  
+  #Set the significance threshold (default: 5% FDR)
+  # FDRlevel <- 0.05
+  
+  print("Fitting ridge regression model with Huber weights and empirical Bayes estimation of variance")
+  
+  system.time(model_RR <- fit.model(protdata=proteins_protdata,
+                                    response="quant_value",
+                                    fixed=fixed, random=random,
+                                    shrinkage.fixed=NULL,
+                                    weights="Huber",
+                                    squeezeVar=TRUE))
+  
+  print(paste0("Model fit for n proteins: ", length(model_RR)))
+  
+  
+  print("Performing hypothesis testing")
+  RSqM <- test.protLMcontrast(model_RR, L) & system('notify-send "Done"')
+  print("Multiple testing correction")
+  RSqM_adjust <- prot.p.adjust(RSqM)
+  RSqM_signif <- prot.signif(RSqM_adjust)
+  RSqM_signif$Protein.IDs <- rownames(RSqM_signif)
+  print("DONE")
+  
+  
+  print(paste0("Saving results to ", export_folder))
+  
+  
+  write.table(x = RSqM_adjust, file = file.path(export_folder, paste0("RSqM_adjust", suffix, ".tsv")),
+              sep = "\t", col.names = T, row.names = F, quote = F)
+  
+  write.table(x = RSqM_signif, file = file.path(export_folder, paste0("RSqM_signif", suffix, ".tsv")),
+              sep = "\t", col.names = T, row.names = F, quote = F)
+  
+  
+  #If you chose to save the model, save it
+  if(isTRUE(save_model)){
+    print("Saving model")
+    result_files <- list()
+    result_files$proteins <- proteins_protdata
+    result_files$models <- model_RR
+    result_files$levelOptions <- rownames(L)
+    result_files$fixed <- fixed
+    result_files$random <- random
+    saves_MSqRob(result_files, file=file.path(export_folder,"model.RDatas"), overwrite=TRUE)
+    print("Model saved")
+  }
+  return(RSqM_signif)
+  
 }
 
-}else {
-}
+RSqM_signif <- MSqRob_quantification(peptides_msnset_processed = peptides_msnset_processed, experiment_contrasts = experiment_contrasts)
+
+
+
+

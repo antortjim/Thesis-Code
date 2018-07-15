@@ -1,6 +1,23 @@
 library("readxl")
 # proteins <- read.table(file = "proteins.txt", header = F, stringsAsFactors = F)[,1]
-supplementary_file <- "MaxLFQ/mcp.M113.031591-1.xlsx"
+
+home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
+                   ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj",
+                          "/home/antortjim/"))
+
+
+data_dir <- ifelse(Sys.info()["user"] == "aoj", "thesis/genedata/maxlfq/",
+                   "MEGA/Master/Thesis/Code/scripts/data")
+
+exp_dir <-  ifelse(Sys.info()["sysname"] == "Windows",
+                   file.path(root_dir, exp_name),
+                   file.path(home_dir, data_dir))
+
+supplementary_file <- ifelse(Sys.info()["sysname"] == "Windows",
+       "MaxLFQ/mcp.M113.031591-1.xlsx",
+       file.path(exp_dir, "mcp.M113.031591-1.xlsx")
+       )
+
 
 supplementary <- read_xlsx(path = supplementary_file)
 taxonomy <- supplementary[,c("Protein IDs", "Taxonomy")]

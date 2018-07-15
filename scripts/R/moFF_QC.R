@@ -18,9 +18,9 @@ home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
 data_dir <- ifelse(Sys.info()["user"] == "aoj", "thesis/genedata/maxlfq/",
                    "MEGA/Master/Thesis/Code/scripts/data")
 
-input_dir <- file.path(home_dir, data_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/mbr_output")
+input_dir <- file.path(home_dir, data_dir, "output_moFF_RAW/mbr_output")
 thesis_report_dir <- file.path(home_dir, ifelse(Sys.info()["sysname"] == "Windows",
-                                                "OneDrive - Novozymes A S/Thesis-Report/",
+                                                "OneDrive - Novozymes A S/Thesis-Report",
                                                 "MEGA/Master/Thesis/Report"))
 setwd(input_dir)
 
@@ -48,7 +48,7 @@ mbr_summary$matched <- factor(ifelse(mbr_summary$matched == 0, sources[1], sourc
 run_labels <- 1:3
 names(run_labels) <- column_names
 
-ggplot(mbr_summary, aes(x = replicate, y = count/1e3, fill=matched)) +
+mbr_summary <- ggplot(mbr_summary, aes(x = replicate, y = count/1e3, fill=matched)) +
   geom_bar(stat="identity") +
   scale_fill_viridis(discrete = T) +
   guides(fill=guide_legend(title="Source")) +
@@ -129,8 +129,14 @@ p <- p + guides(col = guide_legend(override.aes = list(size = 5)))
 p <- p + theme(legend.position = "top")
 p <- p + coord_cartesian(ylim = c(-2,2))
 p
+
 ggsave(filename = file.path(thesis_report_dir, "plots", "mbr.png"),
        width=6, height=5)
+
+mbr <- plot_grid(mbr_summary + theme(legend.position = "top"), p + guides(col=F),
+                 nrow=2, rel_widths = c(0.6,1), labels="AUTO")
+ggsave(filename = file.path(thesis_report_dir, "plots", "mbr_combined.png"), plot = mbr,
+       width=7, height=7)
 
 
 rm(list=ls())
