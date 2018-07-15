@@ -10,7 +10,11 @@ library(latex2exp)
 
 theme_set(theme_bw())
 rm(list = ls())
-home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
+home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
+                   ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj",
+                          "/home/antortjim/"))
+
+data
 exp_dir <- "thesis/genedata/maxlfq"
 input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/PSM_reports/output_moff_RAW/mbr_output")
 thesis_report_dir <- "C:/Users/aoj/OneDrive - Novozymes A S/Thesis-Report/"

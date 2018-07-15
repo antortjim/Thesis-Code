@@ -5,13 +5,21 @@ library("cowplot")
 library(pROC)
 library(latex2exp)
 library("viridis")
-# home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
-# export_folder <- file.path(home_dir, "thesis", "genedata", "maxlfq", "quantification")
+
+home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
+                   ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj",
+                          "/home/antortjim/"))
+
+
+data_dir <- ifelse(Sys.info()["user"] == "aoj", "thesis/genedata/maxlfq/",
+                   "MEGA/Master/Thesis/Code/scripts/data")
+
+
 # setwd(file.path(home_dir, "thesis/genedata/maxlfq"))
 
 
 # Process published supplementary material
-maxlfq_results <- read_xlsx("mcp.M113.031591-1.xlsx")
+maxlfq_results <- read_xlsx(file.path(data_dir, "mcp.M113.031591-1.xlsx"))
 maxlfq_results <- maxlfq_results[,c(1:6, 33)]
 lfq_intensities <- log2(maxlfq_results[,1:6] %>% as.matrix)
 lfq_signif_list <- apply(lfq_intensities, 1, function(row) {
@@ -46,7 +54,8 @@ group_by(lfq_signif, taxonomy) %>% summarise(count = n())
 # Export to a standard format
 
 # Read MSqRob output
-RSqM_signif <- read.table("../model/data/RSqM_signif_peptides.txt",sep="\t", header=T) %>% filter(!is.na(taxonomy))
+RSqM_signif <- read.table(file.path(data_dir, "../../model/data/RSqM_signif_peptides.txt"),
+                          sep="\t", header=T) %>% filter(!is.na(taxonomy))
 
 group_by(RSqM_signif, taxonomy) %>% summarise(count = n())
 group_by(lfq_signif, taxonomy) %>% summarise(count = n())
@@ -122,7 +131,7 @@ plot_grid(plot_list[[1]], plot_list[[2]],
 # abline(a = 0, b = 1)
 
 
-RSqM_signif_taxon <- read.table(file = file.path(paste0("RSqM_signif_taxon", ".tsv")),
+RSqM_signif_taxon <- read.table(file = paste0(file.path(data_dir, "RSqM_signif_taxon"), ".tsv"),
                                 sep = "\t", header = T) %>%
   filter(se < 0.5)
 
@@ -171,17 +180,6 @@ ggsave(file.path(report_dir, "histogram_pipeline.png") , height = 7, width = 7)
 # positives <- roc_data$taxonomy != "Homo sapiens"
 
 
-
-plot(
-  cumsum(RSqM_signif_taxon %>% arrange(qval) %>% .$taxonomy == "Homo sapiens") / nrow(RSqM_signif_taxon %>% filter(taxonomy == "Homo sapiens")),
-  cumsum(RSqM_signif_taxon %>% arrange(qval) %>% .$taxonomy != "Homo sapiens") / nrow(RSqM_signif_taxon %>% filter(taxonomy != "Homo sapiens")),
-  type="l", col = "red")
-lines(
-  cumsum(lfq_signif %>% arrange(qval) %>% .$taxonomy == "Homo sapiens") / nrow(lfq_signif %>% filter(taxonomy == "Homo sapiens")),
-  cumsum(lfq_signif %>% arrange(qval) %>% .$taxonomy != "Homo sapiens") / nrow(lfq_signif %>% filter(taxonomy != "Homo sapiens")),
-  type="l", col = "green")
-abline(a = 0, b = 1)
-
 nrow(RSqM_signif_taxon)
 table(RSqM_signif_taxon$taxonomy == "Homo sapiens")
 nrow(lfq_signif)
@@ -192,7 +190,7 @@ pipelines <- c("Compomics+MSqRob", "MQ+MaxLFQ", "MQ+MSqRob"
                # , "MQ+MSBay"
                )
 
-MSBayQ <- read.table(file = "../model/data/MSBayQ.tsv", header=T, sep = "\t")
+MSBayQ <- read.table(file = file.path(data_dir, "../../model/data/MSBayQ.tsv"), header=T, sep = "\t")
 colnames(MSBayQ)[1] <- "protein"
 ROPE <- 0.4
 MSBayQ$significance <- ifelse((MSBayQ$hpd_2.5 > ROPE), 0, 1)
@@ -225,6 +223,7 @@ make_plot_data <- function(curve_data, curve="roc") {
       control_data <- rbind(control_data,
                              data.frame(x=(cumsum(TN) / sum(TN)), y=(cumsum(TP) / sum(TP)), Tool = pip)
       )
+      control_data <- rbind(control_data, data.frame(x=1,y=1, Tool=pip))
       
       aucs[i] <- roc(curve_data %>% filter(Tool == pip) %>% .$Organism == "Homo sapiens",
                      curve_data %>% filter(Tool == pip) %>% .$signif
@@ -232,10 +231,14 @@ make_plot_data <- function(curve_data, curve="roc") {
       
     } else if (curve=="prc") {
       control_data <- rbind(control_data,
-                             data.frame(x=cumsum(TP)/sum(TP), y = cumsum(TP)/(cumsum(TP) + cumsum(TN)), Tool = pip)
-      )
+                             data.frame(
+                               x=cumsum(TP)/sum(TP),
+                               y = cumsum(TP)/(cumsum(TP) + cumsum(TN)),
+                               Tool = pip
+                               )
+                            )
+      control_data <- rbind(control_data, data.frame(x=1,y=0, Tool=pip))
     }
-   
     
     i <- i + 1
   }
@@ -286,14 +289,10 @@ plot_curve(roc_data, curve = "prc")
 plot_curve(roc_data %>% filter(log2FC > 1), curve = "prc")
 
 
-
-
 roc_data <- roc_data %>% filter(!is.na(signif))
 roc_data %>% group_by(Tool, Organism, signif < 0.05)  %>% summarise(count = n())
 
 
-
-  
 gg_color_hue <- function(n) {
     hues = seq(15, 375, length = n + 1)
     hcl(h = hues, l = 65, c = 100)[1:n]
@@ -320,7 +319,7 @@ histogram_plot <- ggplot(roc_data, aes(fill = Organism, x = log2FC)) +
   scale_fill_manual(values = palette)
 
 
-MSBayQ$width <- abs(MSBayQ$`hpd_97.5` - MSBayQ$`hpd_2.5`)
+# MSBayQ$width <- abs(MSBayQ$`hpd_97.5` - MSBayQ$`hpd_2.5`)
 
 ggplot(MSBayQ %>% filter(n_peptides>3), aes(fill = Organism, x = mean)) +
   # geom_jitter() +
