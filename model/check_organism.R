@@ -1,4 +1,5 @@
 library("readxl")
+library("dplyr")
 # proteins <- read.table(file = "proteins.txt", header = F, stringsAsFactors = F)[,1]
 supplementary_file <- "MaxLFQ/mcp.M113.031591-1.xlsx"
 
@@ -9,7 +10,7 @@ group_length <- lapply(protein_ids, length) %>% unlist
 
 taxonomy <- data.frame(Protein.IDs = unlist(protein_ids), Taxonomy = as.character(rep(taxonomy$Taxonomy, group_length)))
 check_organism <- function(proteins,split=";") {
-  validated <- logical(length = length(proteins))
+  validated <- rep(F, length(proteins))
   result <- character(length = length(proteins))
   for (j in 1:length(proteins)) {
     value <- proteins[j]

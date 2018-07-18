@@ -6,7 +6,8 @@ library(pROC)
 library(latex2exp)
 library("viridis")
 library("stringr")
-
+library("tidyr")
+library(VennDiagram)
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj",
                    ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj",
                           "/home/antortjim/"))
@@ -22,7 +23,7 @@ report_dir <- file.path(home_dir, "MEGA/Master/Thesis/Report/plots/")
 
 ### 1. LOAD MQ+LFQ PROCESSED DATA
 # Process published supplementary material
-maxlfq_results <- read_xlsx(file.path(data_dir, "mcp.M113.031591-1.xlsx"))
+maxlfq_results <- read_xlsx(file.path(home_dir, data_dir, "mcp.M113.031591-1.xlsx"))
 maxlfq_results <- maxlfq_results[,c(1:6, 33, grep(pattern = "Majority protein IDs", x = colnames(maxlfq_results)))]
 lfq_intensities <- log2(maxlfq_results[,1:6] %>% as.matrix)
 lfq_signif_list <- apply(lfq_intensities, 1, function(row) {
@@ -58,7 +59,7 @@ group_by(lfq_signif, taxonomy) %>% summarise(count = n())
 
 ### 2. LOAD MQ+MSqRob PROCESSED DATA
 # Read MSqRob output
-RSqM_signif <- read.table(file.path(data_dir, "../../model/data/RSqM_signif_peptides.txt"),
+RSqM_signif <- read.table(file.path(home_dir, data_dir, "../../model/data/RSqM_signif_peptides.txt"),
                           sep="\t", header=T) %>% filter(!is.na(taxonomy))
 
 # MQ_histogram_plot <- ggplot(data = lfq_signif, aes(x=estimate, fill = taxonomy)) + geom_histogram(position="dodge")
@@ -131,22 +132,22 @@ RSqM_signif <- read.table(file.path(data_dir, "../../model/data/RSqM_signif_pept
 
 
 ### 3. LOAD Compomics+MSqRob PROCESSED DATA
-RSqM_signif_compomics <- read.table(file.path(export_folder, paste0("RSqM_signif", ".tsv")),
+RSqM_signif_compomics <- read.table(file.path(home_dir, data_dir, paste0("RSqM_signif_taxon", ".tsv")),
                     sep = "\t", header = T, stringsAsFactors = F)
 
-source(file.path(home_dir, data_dir, "../R/check_organism.R"))
-organism_check <- check_organism(RSqM_signif_compomics$Protein.IDs, split = ", ")
-
-RSqM_signif_compomics <- left_join(RSqM_signif_compomics,
-         data.frame(Protein.IDs = RSqM_signif_compomics$Protein.IDs, taxonomy = organism_check[[2]]),
-         by = "Protein.IDs") %>%
- filter(!is.na(taxonomy))
+# source(file.path(home_dir, data_dir, "../R/check_organism.R"))
+# organism_check <- check_organism(RSqM_signif_compomics$Protein.IDs, split = ", ")
+# 
+# RSqM_signif_compomics <- left_join(RSqM_signif_compomics,
+#          data.frame(Protein.IDs = RSqM_signif_compomics$Protein.IDs, taxonomy = organism_check[[2]]),
+#          by = "Protein.IDs") %>%
+#  filter(!is.na(taxonomy))
 
 RSqM_signif_taxon <- RSqM_signif_compomics %>% filter(abs(estimate) > 1e-6)
 RSqM_signif_taxon <- RSqM_signif_compomics 
 
-write.table(x = RSqM_signif_taxon, file = file.path(export_folder, paste0("RSqM_signif_taxon", suffix, ".tsv")),
-            sep = "\t", col.names = T, row.names = F, quote = F)
+# write.table(x = RSqM_signif_taxon, file = file.path(export_folder, paste0("RSqM_signif_taxon", suffix, ".tsv")),
+#             sep = "\t", col.names = T, row.names = F, quote = F)
  
 
 ### 4. PLOT DATA
@@ -182,17 +183,15 @@ nbins <- 100
 # histogram_compomics
 
 
-ggsave(file.path(report_dir, "qvals.png"), height = 7, width = 7)
+# ggplot(data = RSqM_signif_taxon, aes(x=estimate, fill=taxonomy)) +
+#   geom_histogram(bins=50, position="dodge") +
+#   coord_cartesian(xlim = c(-5,5)) +
+#   scale_x_continuous(breaks = -5:5)
 
-ggplot(data = RSqM_signif_taxon, aes(x=estimate, fill=taxonomy)) +
-  geom_histogram(bins=50, position="dodge") +
-  coord_cartesian(xlim = c(-5,5)) +
-  scale_x_continuous(breaks = -5:5)
-
-ggsave(file.path(report_dir, "histogram_pipeline.png") , height = 7, width = 7)
+# ggsave(file.path(report_dir, "histogram_pipeline.png") , height = 7, width = 7)
 
 
-pipelines <- c("Compomics+MSqRob", "MQ+MaxLFQ", "MQ+MSqRob"
+pipelines <- c("Comp+Rob", "MQ+LFQ", "MQ+Rob"
                # , "MQ+MSBay"
                )
 
@@ -284,9 +283,9 @@ plot_curve <- function(curve_data, curve="roc") {
                fill=palette[i], color="white", fontface="bold",
                hjust = 1.2, vjust = -1*i/2 -(i-0.5))
     }
-    curve_plot <- curve_plot + xlab("FPR") + ylab("TNR") + geom_abline(slope=1, intercept=0, linetype="dashed")
+    curve_plot <- curve_plot + xlab("FPR") + ylab("TPR") + geom_abline(slope=1, intercept=0, linetype="dashed")
   } else {
-    curve_plot <- curve_plot + xlab("FNR") + ylab("Precision") + geom_abline(slope=-1, intercept=1, linetype="dashed")
+    curve_plot <- curve_plot + xlab("TPR") + ylab("Precision") + geom_abline(slope=-1, intercept=1, linetype="dashed")
   }
   curve_plot <- curve_plot + theme_bw(base_size=15)
   return(curve_plot)
@@ -326,6 +325,7 @@ box_plot <- ggplot(tools_data, aes(fill = Organism, x = Organism, y = -log10(sig
   labs(y = ylab_tex) +
   scale_fill_manual(values = palette)
 
+theme_set(theme_bw(base_size = 15) + theme(legend.title = element_text(size = 20)))
 histogram_plot <- ggplot(tools_data, aes(fill = Organism, x = log2FC)) +
   # geom_jitter() +
   geom_histogram(position="dodge", bins=nbins) +
@@ -375,17 +375,101 @@ combined_plot <- plot_grid(histogram_plot,
           volcano_plot + theme(legend.position = "none") + geom_hline(yintercept = -log10(0.05), linetype="dashed"),
           box_plot + geom_hline(yintercept = -log10(0.05), linetype="dashed"),
           nrow=3, labels="AUTO", align = "v")
+
 combined_plot
+
 ggsave(filename = file.path(report_dir, "combined_plot.png"), plot = combined_plot, height=10, width=8)
 ggsave(filename = file.path(report_dir, "histogram_compomics.png"), plot = compomics_histogram_plot, height=5, width=10)
 
 
 true_data <- tools_data %>% filter(log2FC > 1, signif < 0.05, Organism == "E. coli") %>% select(prot, Tool)
-for (tool in tools_data$Tool %>% unique) {
-  write.table(x = true_data %>% filter(Tool == tool) %>% .$prot,
+strsplit(true_data$prot[grep(";", true_data$prot)], split = ";") %>%
+  lapply(function(x) strsplit(x, split = "-") %>% lapply(function(y) {y[1]}) %>%
+           unlist %>% unique %>% paste(., collapse = ";")) %>% unlist
+
+true_positives <- lapply(tools_data$Tool %>% unique, function(tool) true_data %>% filter(Tool == tool) %>% .$prot)
+
+shared_positives1 <- true_positives[[1]][true_positives[[1]] %in% true_positives[[2]]]
+shared_positives2 <- true_positives[[1]][true_positives[[1]] %in% true_positives[[3]]]
+shared_positives <- shared_positives1[shared_positives1 %in% shared_positives2]
+
+for (tool in pipelines) {
+  write.table(x = ,
               file = file.path(home_dir, data_dir, paste0(tool, "_true.txt")),
               quote = F, sep = "\t", row.names = F, col.names = F)
 }
+
+pipelines
+
+v <- venn.diagram(x = lapply(pipelines, function(x) true_data[true_data$Tool ==x, "prot"]),
+                  filename = file.path(report_dir, "vennDiagram.png"), imagetype = "png",
+                  # filename = NULL,
+                  category.names = tools_data$Tool %>% unique,
+                          fill = c("#ff0000",
+                                   # "#5b00ff",
+                                   "#f5ff6e",
+                                   "#00ff0c"),
+                  alpha = 0.5, lwd=0, cex = 1.7, cat.cex=1.3,
+                  cat.just=list(c(0,6) , c(1.4,6) , c(.5,-6)))
+
+grid.newpage() & grid.draw(v)
+
+filter(tools_data, prot == "P02919")
+shared_data <- tools_data %>% filter(prot %in% shared_positives) %>% select(log2FC, prot, Tool)
+
+pipeline_pairs <- combn(pipelines, 2)
+corr_plot_data <- data.frame(prot=NULL, x=NULL, y=NULL, pair=NULL)
+for (i in 1:ncol(pipeline_pairs)) {
+  current_pair <- pipeline_pairs[,i]
+  xx <- spread(filter(shared_data, Tool %in% current_pair), Tool, log2FC)
+  colnames(xx)[2:3] <- c("x", "y")
+  xx$Tool <- paste(current_pair, collapse = " - ")
+  corr_plot_data <- rbind(corr_plot_data, xx)
+}
+
+
+correlation <- group_by(corr_plot_data, Tool) %>% summarise(corr = cor(x, y))
+
+xcoord <- Inf
+ycoord <- -Inf
+
+rho <- sapply(round(correlation$corr, digits=2), function(co) {
+  paste0("r = ", co)
+  }) %>% as.list %>% unlist
+
+
+pipeline_pairs_char <- apply(pipeline_pairs, 2, function(x) paste(x, collapse = " - "))
+
+annot_data <- data.frame(Tool = pipeline_pairs_char,
+                         rho = rho)
+
+facet_labels <- pipeline_pairs_char
+names(facet_labels) <- 1:3
+
+correlation_plot <- ggplot(data = corr_plot_data, aes(x=x,
+                                                      # col=Tool,
+                                                      y=y)) +
+  geom_point() +
+  facet_wrap(~Tool
+             # labeller = labeller(Tool = facet_labels)
+             ) +
+  geom_abline(intercept = 0, slope = 1, linetype="dashed") +
+  coord_cartesian(xlim = 0.5:4, ylim = 0.5:4) +
+  labs(x = "First pipeline", y = "Second pipeline")
+
+
+correlation_plot <- correlation_plot +
+           geom_text(data = annot_data,
+                     aes(x = xcoord, y = ycoord, col=NULL, label=rho),
+                     # label="hola",
+  # fill=palette[i], color="white", fontface="bold",
+  hjust = 1.6, vjust =-2.2, size=7) +
+  theme_bw(base_size=20) +
+  theme(legend.position = "top")
+correlation_plot
+
+ggsave(filename = file.path(report_dir, "correlation_plot.png"),
+       plot = correlation_plot, height=6, width=8)
 
 
 RSqM_signif_taxon %>% group_by(Organism) %>% summarise(sum((log2FC > log2(2.5) & qval <  0.05), na.rm=T))

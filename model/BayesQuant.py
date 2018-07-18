@@ -2,19 +2,57 @@ import pymc3 as pm
 import numpy as np
 import matplotlib.pyplot as plt
 from theano import shared
+import theano
 import shutil
 import os
 from exp_annot_funcs import *
 import sys
+import pickle
+from sklearn.decomposition import PCA 
+import seaborn as sns
 
 
-class MSBay:
+class BayesQuant:
 
-    "Compile a MS-Bay model, load data into it and infer the posterior"
+    "Compile a BayesQuant model, load data into it and posterior distributions"
 
-    def __init__(self, data, features=None):
-       self.data = data
-       self.features = features
+    def __init__(self, data=None, features=None, plot_dir="../../Report/plots"):
+        self.data = data
+        self.features = features
+        self.p = None
+        self.trace = None
+        self.pca = None
+        self.plot_dir = plot_dir
+
+
+    def read_data(self, data_path="data/data.tsv", features_path="data/advanced_features.tsv"):
+        data = pd.read_csv(data_path, sep = "\t")
+        for c in data.columns[2:].values:
+            data[c] = data[c].astype(theano.config.floatX)
+
+
+        self.data = data
+
+
+        if features_path is not None:
+            features = pd.read_csv(features_path, sep = "\t").iloc[:,1:]
+            features=features.iloc[data.index,:]
+            n_seq_feat = features.shape[1]
+            print("Number of sequence features {}".format(n_seq_feat))
+            n_prots = len(np.unique(data.protein))
+            print("Number of proteins {}".format(n_prots))
+            n_peptides = data.shape[0]
+            print("Number of peptides {}".format(n_peptides))
+            print("This is the first row of the features array:")
+            print(features.shape)
+            print(features.iloc[:1,:])
+
+            self.features = features
+
+        return (self.data, self.features)
+
+
+
 
     def compile_model(self, n_peptides, hierarchical_center=False):
 
@@ -55,11 +93,11 @@ class MSBay:
             # The difference in treatment effects is an estimate of the log2FC
     
     
+            # Set a prior on the random effects
+            #sigma = pm.HalfNormal('sigma', 1)
             # Set a prior on the intercept
-            intercept = pm.Normal("intercept", 22, 1)
+            intercept = pm.Normal("intercept", mu=22, sd=1)
             
-            # Set a prior on the remaining random effects
-            sigma = pm.HalfNormal('sigma', 1)
     
             ## Set priors on the peptide effect
             ################################################
@@ -67,15 +105,15 @@ class MSBay:
     
             # Not using the sequence
             if not sequence:
-                mu_pep = pm.Normal('mu_pep', mu=0, sd=sigma_pep, shape=(n_peptides, 1))
+                mu_pep = pm.Normal('mu_pep', mu=0, sd=sigma_pep)
     
             # Using the peptide sequence
             else: 
                 # sequence based modelling
-                mu_theta = pm.Normal('theta_generic', 0, sigma_pep, shape = 1)
+                mu_theta = pm.Normal('theta_generic', 0, sigma_pep)
                 theta = pm.Normal('theta', mu_theta, sigma_pep, shape = (n_features, 1))    # 9x1
                 theta_inter = pm.Normal('theta_inter', mu_theta, sigma_pep, shape = 1)
-                mu_pep = pm.Deterministic("mu_pep", theta_inter + self.feats_sh.dot(theta)) # n_peptidesx1
+                mu_pep = pm.Deterministic("mu_pep", theta_inter + self.feats_sh.dot(theta))
     
     
             ## Set priors on the treatment and run effects
@@ -87,7 +125,7 @@ class MSBay:
     
             # Standard implementation of the hyerarchies
             if hierarchical_center:
-                pep = pm.Normal("pep", mu_pep, sigma_pep) # n_peptidesx1
+                pep = pm.Normal("pep", mu_pep, sigma_pep, shape = (n_peptides, 1)) # n_peptidesx1
                 treat = pm.Normal('treat', mu_treat, sigma_treat, shape = (n_prots*2, 1))
                 run = pm.Normal('run', mu_run, sigma_run, shape = (n_prots*6, 1))
     
@@ -117,13 +155,14 @@ class MSBay:
             run_effect = pm.Deterministic("run_effect", pm.math.sum(self.x_run_sh.dot(run), axis=1))
     
             # BIND MODEL TO DATA
-            mu = pm.Deterministic("mu", 
-                intercept + treatment_effect + peptide_effect + run_effect) #n_peptides*6x1
+            mu = intercept + treatment_effect + peptide_effect + run_effect
+            #mu = pm.Deterministic("mu", effects) #n_peptides*6x1
+            epsilon = pm.HalfNormal('epsilon', sd=1)
             if hierarchical_center:
-                obs = pm.Normal("obs", mu, sigma, observed=self.observed_sh)
+                obs = pm.Normal("obs", mu, epsilon, observed=self.observed_sh)
             else:
                 obs_offset = pm.Normal("obs_offset", mu=0, sd=1, shape=(n_peptides*6,1))
-                obs = pm.Normal("obs", mu+obs_offset*sigma, sigma, observed=self.observed_sh)
+                obs = pm.Normal("obs", mu+obs_offset*epsilon, epsilon, observed=self.observed_sh)
     
     
         print("Success: Model compiled")
@@ -131,15 +170,19 @@ class MSBay:
         self.model = model
         return model
     
-    def sample(self, model_name, n_draws=1000, n_chains=3, remove_backend=True):
-    
+    def sample(self, model_name=None, n_draws=1000, n_chains=3, remove_backend=True):
+
+        p = self.p
+        if model_name is not None:
+            p = model_name    
+
         # Check working environment  
         if not os.path.isdir("traces") or not os.path.isdir("plots/traceplots"):
             msg = "Please create a traces dir and a plots/traceplots dir before running this code"
             raise Exception(msg)
     
-        if remove_backend and os.path.isdir("traces/{}".format(model_name)):
-            shutil.rmtree("traces/{}".format(model_name))
+        if remove_backend and os.path.isdir("traces/{}".format(p)):
+            shutil.rmtree("traces/{}".format(p))
     
     
         with self.model:
@@ -149,41 +192,64 @@ class MSBay:
     
             # Save traces to the Text backend i.e a folder called
             # model_name containing csv files for each chain
-            trace_name = 'traces/{}'.format(model_name)
+            trace_name = 'traces/{}'.format(p)
             db = pm.backends.Text(trace_name)
             trace = pm.sample(draws=n_draws, njobs=n_chains, trace=db,
                               tune=2000, nuts_kwargs=dict(target_accept=.95))
         
         # Save a traceplot 
         pm.traceplot(trace, varnames=["estimate"])
-        traceplot = "plots/traceplots/{}.png".format(model_name)
+        traceplot = "plots/traceplots/{}.png".format(p)
         plt.savefig(traceplot)
         plt.close()
+
+
+        self.trace = trace
            
         return trace
 
-    def fit(self, model_name, n_draws):
+    def fit(self, model_name=None, n_draws=40000):
+
+        p = self.p
+        if model_name is not None:
+            p = model_name
+ 
+        try:
+            os.mkdir("traces/{}".format(p))
+        except:
+            print("Dir exists")
+
 
         with self.model:
             
             inference = pm.ADVI()
             # how can the trace be saved when using pm.fit??
-            trace = pm.fit(n=n_draws, method=inference).sample()
+            trace = inference.fit(n=n_draws).sample()
+
+
+
+            with open("traces/{}/trace.pik".format(p), 'wb') as f:
+                pickle.dump({'model': self.model, 'trace': trace}, f)
+
+            #with open('trace.p', 'rb') as f:
+            #    test1 = pickle.load(f)
+
+            # trace = pm.fit(n=n_draws, method=inference).sample()
+
 
         plt.plot(-inference.hist, alpha=.5)
         plt.legend()
         plt.ylabel('ELBO')
         plt.xlabel('iteration');
-        plt.savefig("plots/ELBO/{}".format(model_name))
+        plt.savefig("plots/ELBO/{}".format(p))
         plt.close()
 
 
-        try:
-            os.mkdir("traces/{}".format(model_name))
-        except:
-            print("Dir exists")
+ 
         df=pd.DataFrame({"estimate": trace["estimate"][:,0,0]})
-        df.to_csv("traces/{}/chain-0.tsv".format(model_name))
+        df.to_csv("traces/{}/chain-0.tsv".format(p))
+
+        self.trace = trace
         
         return trace
     
@@ -202,3 +268,46 @@ class MSBay:
         self.x_pep_sh.set_value(x_pep)
         self.x_run_sh.set_value(x_run)
         self.x_estimate_sh.set_value(x_estimate)
+        self.p = p
+
+
+    def ppc(self, samples=500):
+
+        with self.model:
+            sim = pm.sample_ppc(self.trace, samples=samples)["obs"]
+
+        sim=sim[:,0,:]
+        peps = list(map(lambda i: sim[:, (i*6):((i*6)+6)], range(n_peptides)))
+        estimates = list(map(lambda x: np.mean(x[:,:3], axis=1) - np.mean(x[:,3:6], axis=1), peps))
+        fig, ax = plt.subplots(1,n_peptides, figsize=(15,5))
+        [ax[i].hist(e) for i, e in enumerate(estimates)]
+        plt.savefig(os.path.join(self.plot_dir, "PPC/histogram_{}".format(p)))
+        plt.close()
+
+
+        peps_data = np.vstack(peps)
+        sim_transformed = self.pca.transform(peps_data)
+        sim_transformed
+        plt.scatter(sim_transformed[:,0], sim_transformed[:,1], label="Sim obs")
+        obs = self.data.loc[self.data.protein == p].iloc[:,2:]
+        obs_transformed = pca.transform(obs)
+        plt.scatter(obs_transformed[:,0], obs_transformed[:,1], c = "red", label="True obs")
+        plt.legend()
+        plt.xlabel("PC1")
+        plt.ylabel("PC2")
+        plt.savefig(os.path.join(self.plot_dir, "PPC/PCA_{}".format(p)))
+        plt.close()
+
+    def PCA(self):
+        x = self.data.values[:,2:]
+        pca = PCA(n_components=2)
+        pca.fit(x)
+        self.pca = pca
+        print("Percentage of variance explained by PC1 and PC2")
+        print(pca.explained_variance_ratio_*100)
+        x_transformed = pca.transform(x)
+        pca_data = pd.DataFrame({"taxon": self.data.taxon, "PC1": x_transformed[:,0], "PC2": x_transformed[:,1]})
+        myPlot = sns.FacetGrid(col="taxon", hue='taxon', data=pca_data, size=5)
+        myPlot = myPlot.map(plt.scatter, "PC1", "PC2", alpha=0.3)
+        myPlot = myPlot.map_dataframe(plt.plot, [min(pca_data.PC1),max(pca_data.PC1)], [0, 0], 'r-').add_legend().set_axis_labels("PC1", "PC2")
+        plt.savefig(os.path.join(self.plot_dir, "PCA.png"))

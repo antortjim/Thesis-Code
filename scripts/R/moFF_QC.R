@@ -134,7 +134,8 @@ ggsave(filename = file.path(thesis_report_dir, "plots", "mbr.png"),
        width=6, height=5)
 
 mbr <- plot_grid(mbr_summary + theme(legend.position = "top"), p + guides(col=F),
-                 nrow=2, rel_widths = c(0.6,1), labels="AUTO")
+                 nrow=2, rel_widths = c(0.5, 1), labels="AUTO")
+mbr
 ggsave(filename = file.path(thesis_report_dir, "plots", "mbr_combined.png"), plot = mbr,
        width=7, height=7)
 
