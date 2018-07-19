@@ -1,4 +1,4 @@
-library(ggplot2); library(tidyr); library(ggalt); library(cowplot)
+library(ggplot2); library(dplyr); library(tidyr); library(ggalt); library(cowplot)
 
 
 gg_color_hue <- function(n) {
@@ -67,5 +67,6 @@ MSBayQ <- read.table("data/MSBayQ.tsv", header=T, sep = "\t")
 colnames(MSBayQ)[1] <- "protein"
 print(colnames(MSBayQ))
 
-p1 <- make_dumbbell_plot(MSBayQ %>% filter(n_peptides %in% c(2,3,4,6,7,10)), n_pep = NULL, n=10) 
-ggsave(paste0("../../Report/plots/performance.eps"), height = 7, width=5)
+p1 <- make_dumbbell_plot(MSBayQ[MSBayQ$n_peptides %in% c(2,3,4,6,7,10),], n_pep = NULL, n=10) 
+ggsave(paste0("../../Report/plots/performance.eps"), height = 7, width=5, plot = p1)
+ggsave(paste0("../../Report/plots/performance.png"), height = 7, width=5, plot = p1)

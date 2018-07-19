@@ -31,8 +31,6 @@ else:
     MSBayQ = pd.DataFrame({"mean": [], "sd": [], "hpd_2.5":[], "hpd_97.5":[],"Organism":[], "n_peptides":[]})
 
 
-
-
 for n_pep in range(2,6):
     proteins = protein_counts[str(n_pep)]
     proteins = proteins[~pd.Series(proteins).isin(MSBayQ.index)]
@@ -68,8 +66,8 @@ for n_pep in range(2,6):
         if ecoli>n and human>n:
              break 
 
-        msbay.load_data(p, top)
-        trace = msbay.fit(model_name=p, n_draws=50000)
+        msbay.load_data(p, n_peptides)
+        trace = msbay.fit(model_name=p)
         result = pm.summary(trace, varnames=["estimate"])
         result.index = [p]
         result["Organism"] = organism

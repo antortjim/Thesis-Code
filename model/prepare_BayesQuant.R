@@ -105,150 +105,158 @@ peptides <- data_df
 ## SEQUENCE FEATURE EXTRACTION
 #############################################################################################
 
-if(opt$extract_features) {
-  cat("Extrating sequence features")
-  # ecoli_fasta <- read.fasta(file = "fasta/ecoli.fasta",seqtype = "AA")
-  # human_fasta <- read.fasta(file = "fasta/homo_sapiens.fasta",seqtype = "AA")
-  
-  fasta_files_list <- lapply(organisms, function(x) paste0("fasta/", x, ".fasta"))
-  fastas_list <- lapply(fasta_files_list, function(f) read.fasta(file = f, seqtype = "AA"))
-  
-  names(fastas_list) <- organisms
-  peptides <- peptides %>% select(Sequence, Proteins)
-  peptides <- peptides[(!peptides %>% duplicated),]
-  
- 
-  if(!is.null(opt$annotation_df)) {
-      peptides <- left_join(annotation_df %>% filter(!is.na(taxon)), peptides, by = "Proteins")
-  }
-  
-  proteins_list <- lapply(fastas_list, function(fasta_file) {
-    getAnnot(fasta_file) %>%
-      lapply(., function(x) strsplit(x, split = "\\|") %>% unlist %>% .[2])
-  })
-  
-  names(proteins_list) <- organisms
-  #   ecoli_prots <- getAnnot(ecoli_fasta) %>%
-  #     lapply(., function(x) strsplit(x, split = "\\|") %>% unlist %>% .[2])
-  #   human_prots <- getAnnot(human_fasta) %>%
-  #     lapply(., function(x) strsplit(x, split = "\\|") %>% unlist %>% .[2])
-  # }
-  
-  
-  # peptides %>% group_by(taxon) %>% summarise(count=n())
-  # peptides %>% group_by(taxon) %>% summarise(count=length(unique(Proteins)))
-  # peptides <- peptides %>% arrange(taxon, Proteins)
-  peptides$Sequence <- as.character(peptides$Sequence)
-  peptides$Proteins <- as.character(peptides$Proteins)
-  
-  
-  # proteins_list <- list("Homo sapiens" = human_prots, "Escherichia coli (strain K12)" = ecoli_prots)
-  # fastas_list <- list("Homo sapiens" = human_fasta, "Escherichia coli (strain K12)" = ecoli_fasta)
-  
-  
-  match_list <- list()
-  not_found_list <- list()
-  
-  # i <- 1
-  n_prots <- 1
-  k <- 1
-  # organism <- "Homo sapiens"
-  # peptides$Proteins %>% unique %>% strsplit(., split=";") %>% unlist %>% table %>% sort %>% table
-  # peptides$Proteins %>% unique %>% length
-  peptides$prot <- peptides$Proteins %>% strsplit(., split=";") %>% lapply(., function(x) x[1]) %>%
-    lapply(., function(x) strsplit(x, split = "-") %>% unlist %>% .[1]) %>%
-    unlist
-  
-  # Takes a couple of minutes
-  ################################################################################
-  for (org in organisms) {
-    
-    if(is.null(annotation_df)) {
-      taxon_peptides <- peptides
-    } else {
-      taxon_peptides <- peptides %>% filter(taxon == org)
-    }
-    taxon_proteins <- proteins_list[[org]]
-    taxon_fasta <- fastas_list[[org]]
-    proteins <- taxon_peptides$prot %>% unique
-    for (p in proteins) {
-      p_peptides <- taxon_peptides %>% filter(prot == p)
-      # split the protein group in the constituent protein ids and remove isoforms
-      # ps <- strsplit(protein_group, split=";") %>% unlist %>% lapply(., function(x) strsplit(x, split = "-") %>% unlist %>% .[1]) %>% unlist %>% unique
-      fasta_pos <- which(taxon_proteins %in% p)
-      if(length(fasta_pos) > 0) {
-        protein_sequence <- getSequence(taxon_fasta[fasta_pos])[[1]] %>%
-          paste(., collapse="") %>%
-          # lapply(., function(x) paste(x, collapse="")) %>% unlist
-          AAString
-        # Biostrings::(x = protein_sequences)
-        # for (pep in p_peptides$Sequence) {
-        # print(pep)
-        match_range_list <- lapply(p_peptides$Sequence, function(pep) matchPattern(pattern = pep, subject = protein_sequence))
-        match_list[[p]] <- match_range_list
-        
-        # iranges_list[[i]] <- match_range
-        # start(match_range) <- max(1, start(match_range) - 15)
-        # end(match_range) <- min(width(protein_sequences[1]), end(match_range) + 15)
-        # window_15[[pep]] <- protein_sequences[[1]][match_range]
-        # i <- i + 1
-        # } # end of peptide
-      } else {
-        print(paste0(p, " not found"))
-        not_found_list[[k]] <- p
-        match_list[[p]] <- NULL
-        
-        k <- k + 1
-      }
-      if (n_prots %% 500 == 0) print(paste0(n_prots, " analyzed"))
-      n_prots <- n_prots + 1
-    } # end of protein
-  } # end of taxon
-  ################################################################################
-  match_list %>% length
-  not_found_list %>% length
-  
-  # names(match_list)[1]
-  (match_list)[[1]][[1]]@subject %>% length
-  
-  n_rows <- match_list %>% lapply(length) %>% unlist %>% sum
-  result <- matrix(nrow=n_rows, ncol=3)
-  colnames(result) <- c("pep", "neigh", "prot")
-  window_length <- 15
-  i <- 1
-  k <- 1
-  match_list %>% length
-  
-  # Takes around 5 mins
-  ################################################################################
-  for(p in names(match_list)) {
-    for(m in match_list[[p]]) {
-      if (length(m) == 1) {
-        pep <- as.character(m)
-        start(m) <- max(1, start(m) - window_length);
-        end(m) <- min(m@subject %>% length , end(m) + window_length)
-        result[i, 1] <- pep
-        result[i, 2] <- as.character(m)
-        result[i, 3] <- p
-        i <- i + 1
-      } else {
-        print(paste0("Repetitions found for ", as.character(m)[1]))
-      }
-    }
-    k <- k + 1
-    if(k %% 100==0) print(k)
-  }
-  
-  result_df <- result %>% as.data.frame()
-  head(result_df)
-
-## END
-#############################################################################################
-# Keep the peptides for which features could be extracted
-data_df_subset <- data_df %>% filter(Sequence %in% result[, "pep"])
-} else {
+# if(opt$extract_features) {
+#   cat("Extrating sequence features")
+#   peptides <- peptides %>% select(Sequence, Proteins)
+#   peptides$Sequence <- as.character(peptides$Sequence)
+#   peptides$Proteins <- as.character(peptides$Proteins)
+#   
+# 
+#     
+#   # Read fasta files provided in organisms
+#   fasta_files_list <- lapply(organisms, function(x) paste0("fasta/", x, ".fasta"))
+#   fastas_list <- lapply(fasta_files_list, function(f) read.fasta(file = f, seqtype = "AA"))
+#   names(fastas_list) <- organisms
+#   
+#   # Select just the Sequence and Proteins field
+#   # Keep the first instance of each peptide
+#   # There's one per run and we want to have just one
+#   peptides <- peptides[(!peptides %>% duplicated),]
+#   
+#  
+#   if(!is.null(opt$annotation_df)) {
+#       peptides <- left_join(peptides, annotation_df %>% filter(!is.na(taxon)), by = "Proteins")
+#   }
+#   
+#   # Refine the list of proteomes (fastas_list) so that the keys
+#   # contain just the protein name
+#   # sp|PXXXX|YYYY -> PXXXX
+#   proteins_list <- lapply(fastas_list, function(fasta_file) {
+#     getAnnot(fasta_file) %>%
+#       lapply(., function(x) strsplit(x, split = "\\|") %>% unlist %>% .[2])
+#   })
+#   names(proteins_list) <- names(fastas_list)
+# 
+#   
+#   # peptides %>% group_by(taxon) %>% summarise(count=n())
+#   # peptides %>% group_by(taxon) %>% summarise(count=length(unique(Proteins)))
+#   # peptides <- peptides %>% arrange(taxon, Proteins)
+#   
+#   # Initialize a list to store the matches and the not found 
+#   match_list <- list()
+#   not_found_list <- list()
+#   
+#   n_prots <- 1
+#   k <- 1
+#   
+#   # Create a new prot field that will store the name of the first protein in the protein group
+#   # without isoform annotation
+#   peptides$prot <- peptides$Proteins %>% strsplit(., split=";") %>% lapply(., function(x) x[1]) %>%
+#     lapply(., function(x) strsplit(x, split = "-") %>% unlist %>% .[1]) %>%
+#     unlist
+# 
+#   organisms_full <- c("Escherichia coli (strain K12)", "Homo sapiens")
+#   names(organisms_full) <- organisms
+#   
+#   # This block of code goes through the proteomes
+#   # to find the sequence of each protein
+#   # Takes a couple of minutes
+#   ################################################################################
+#   for (org in organisms) {
+#     
+#     if(is.null(annotation_df)) {
+#       taxon_peptides <- peptides
+#     } else {
+#       taxon_peptides <- peptides %>% filter(taxon == organisms_full[org])
+#     }
+#     taxon_proteins <- proteins_list[[org]]
+#     taxon_fasta <- fastas_list[[org]]
+#     proteins <- taxon_peptides$prot %>% unique
+#     
+#     cat(paste0("Analyzing proteome ", organisms_full[org]))
+#     pb <- txtProgressBar(min = 0, max = length(proteins), initial = 0) 
+#     for (p in proteins) {
+#       p_peptides <- taxon_peptides %>% filter(prot == p)
+#       # split the protein group in the constituent protein ids and remove isoforms
+#       # ps <- strsplit(protein_group, split=";") %>% unlist %>% lapply(., function(x) strsplit(x, split = "-") %>% unlist %>% .[1]) %>% unlist %>% unique
+#       fasta_pos <- which(taxon_proteins %in% p)
+#       if(length(fasta_pos) > 0) {
+#         protein_sequence <- getSequence(taxon_fasta[fasta_pos])[[1]] %>%
+#           paste(., collapse="") %>%
+#           # lapply(., function(x) paste(x, collapse="")) %>% unlist
+#           AAString
+#         # Biostrings::(x = protein_sequences)
+#         # for (pep in p_peptides$Sequence) {
+#         # print(pep)
+#         match_range_list <- lapply(p_peptides$Sequence, function(pep) matchPattern(pattern = pep, subject = protein_sequence))
+#         match_list[[p]] <- match_range_list
+#         
+#         # iranges_list[[i]] <- match_range
+#         # start(match_range) <- max(1, start(match_range) - 15)
+#         # end(match_range) <- min(width(protein_sequences[1]), end(match_range) + 15)
+#         # window_15[[pep]] <- protein_sequences[[1]][match_range]
+#         # i <- i + 1
+#         # } # end of peptide
+#       } else {
+#         # print(paste0(p, " not found"))
+#         not_found_list[[k]] <- p
+#         match_list[[p]] <- NULL
+#         
+#         k <- k + 1
+#       }
+#       # if (n_prots %% 500 == 0) print(paste0(n_prots, " analyzed"))
+#       n_prots <- n_prots + 1
+#       setTxtProgressBar(pb,n_prots)
+#       
+#     } # end of protein
+#   } # end of taxon
+#   ################################################################################
+#   # match_list %>% length
+#   # not_found_list %>% length
+#   
+#   
+#   n_rows <- match_list %>% lapply(length) %>% unlist %>% sum
+#   result <- matrix(nrow=n_rows, ncol=3)
+#   colnames(result) <- c("pep", "neigh", "prot")
+#   window_length <- 15
+#   i <- 1
+#   k <- 1
+#   pb <- txtProgressBar(min = 0, max = length(match_list), initial = 0) 
+#   # This block of code goes through the protein sequences
+#   # to find the 15 aminoacid window
+#   # For now, it uses the window of the first sequence (ignores all the other matches)
+#   # Takes around 5 mins
+#   cat("Extracting 15 aminoacid window")
+#   ################################################################################
+#   for(p in names(match_list)) {
+#     for(m in match_list[[p]]) {
+#       if (length(m) == 1) {
+#         pep <- as.character(m)
+#         start(m) <- max(1, start(m) - window_length);
+#         end(m) <- min(m@subject %>% length , end(m) + window_length)
+#         result[i, 1] <- pep
+#         result[i, 2] <- as.character(m)
+#         result[i, 3] <- p
+#         i <- i + 1
+#       } else {
+#         print(paste0("Repetitions found for ", as.character(m)[1]))
+#       }
+#     }
+#     k <- k + 1
+#     setTxtProgressBar(pb,k)
+#     # if(k %% 100==0) print(k)
+#   }
+#   
+#   result_df <- result %>% as.data.frame()
+#   head(result_df)
+# 
+# ## END
+# #############################################################################################
+# # Keep the peptides for which features could be extracted
+# data_df_subset <- data_df %>% filter(Sequence %in% result[, "pep"])
+# } else {
   data_df_subset <- data_df
-}
+# }
 
 # Get organism link
 cat("Introducing annotation")
@@ -289,4 +297,9 @@ if(opt$extract_features) {
   write.table(file = file.path(opt$output, "peptides_neighborhood.tsv"), sep = "\t", x = result_df, col.names=T, row.names=F, quote=F)
 }
 
-write.table(file = file.path(opt$output, "ms1_intensities.tsv"), sep = "\t", x = data_df_subset_wide_solid %>% select(-peptide), col.names=T, row.names=F, quote=F)
+write.table(file = file.path(opt$output, "ms1_intensities.tsv"), sep = "\t",
+            x = data_df_subset_wide_solid %>% select(-peptide), col.names=T, row.names=F, quote=F)
+
+# data_df_subset_wide_solid$peptide %>% grep(pattern = "U")
+write.table(file = file.path(opt$output, "peptides.tsv"), sep = "\t",
+            x = data_df_subset_wide_solid %>% select(peptide), col.names=T, row.names=F, quote=F)

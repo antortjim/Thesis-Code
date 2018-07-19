@@ -23,7 +23,7 @@ class BayesQuant:
         self.trace = None
         self.pca = None
         self.plot_dir = plot_dir
-
+        self.sequence = False
 
     def read_data(self, data_path="data/data.tsv", features_path="data/advanced_features.tsv"):
         data = pd.read_csv(data_path, sep = "\t")
@@ -32,21 +32,14 @@ class BayesQuant:
 
 
         self.data = data
+        self.data.shape[0]
 
 
         if features_path is not None:
             features = pd.read_csv(features_path, sep = "\t").iloc[:,1:]
             features=features.iloc[data.index,:]
             n_seq_feat = features.shape[1]
-            print("Number of sequence features {}".format(n_seq_feat))
             n_prots = len(np.unique(data.protein))
-            print("Number of proteins {}".format(n_prots))
-            n_peptides = data.shape[0]
-            print("Number of peptides {}".format(n_peptides))
-            print("This is the first row of the features array:")
-            print(features.shape)
-            print(features.iloc[:1,:])
-
             self.features = features
 
         return (self.data, self.features)
@@ -58,15 +51,17 @@ class BayesQuant:
 
 
         if self.features is None:
-             sequence=False
+             self.sequence=False
+             n_features=0
         elif isinstance(self.features, pd.DataFrame):
-             sequence = True
+             self.sequence = True
+             n_features = self.features.shape[1]
+             self.feats_sh  = shared(np.array([[0.,]*n_features,]*n_peptides))
         else:
              sys.exit("Please set features to either None or a pd.DataFrame")
 
 
         self.observed_sh  = shared(np.array([0.,]*6*n_peptides))
-        self.feats_sh  = shared(np.array([[0.,]*9,]*n_peptides))
         self.x_treat_sh  = shared(np.array([[0.,]*2,]*6*n_peptides))
         self.x_pep_sh  = shared(np.array([[0.,]*n_peptides,]*6*n_peptides))
         self.x_run_sh  = shared(np.array([[0.,]*6,]*6*n_peptides))
@@ -75,9 +70,6 @@ class BayesQuant:
         # The number of proteins in this model is always one
         # i.e this model is fitted protein-wise
         n_prots = 1
-        # The number of features is set to 9 for now
-        # All peptides have 9 features, stored in feats_shared
-        n_features = 9
         
     
         with pm.Model() as model:
@@ -104,16 +96,16 @@ class BayesQuant:
             sigma_pep = pm.HalfNormal('sigma_pep', 1)
     
             # Not using the sequence
-            if not sequence:
+            if not self.sequence:
                 mu_pep = pm.Normal('mu_pep', mu=0, sd=sigma_pep)
     
             # Using the peptide sequence
             else: 
                 # sequence based modelling
-                mu_theta = pm.Normal('theta_generic', 0, sigma_pep)
-                theta = pm.Normal('theta', mu_theta, sigma_pep, shape = (n_features, 1))    # 9x1
-                theta_inter = pm.Normal('theta_inter', mu_theta, sigma_pep, shape = 1)
-                mu_pep = pm.Deterministic("mu_pep", theta_inter + self.feats_sh.dot(theta))
+                sigma_theta = pm.HalfNormal('sigma_theta', sd=1)
+                theta = pm.Normal('theta', mu=0, sd=sigma_theta, shape = (n_features, 1))
+                theta_inter = pm.Normal('theta_inter', mu=0, sd=sigma_theta)
+                mu_pep = pm.Normal("mu_pep", mu=theta_inter + pm.math.sum(self.feats_sh.dot(theta)), sd=sigma_pep)
     
     
             ## Set priors on the treatment and run effects
@@ -177,12 +169,12 @@ class BayesQuant:
             p = model_name    
 
         # Check working environment  
-        if not os.path.isdir("traces") or not os.path.isdir("plots/traceplots"):
-            msg = "Please create a traces dir and a plots/traceplots dir before running this code"
+        if not os.path.isdir("traces") or not os.path.isdir(os.path.join(self.plot_dir, "traceplots")):
+            msg = "Please create a traces dir and a traceplots dir before running this code"
             raise Exception(msg)
     
-        if remove_backend and os.path.isdir("traces/{}".format(p)):
-            shutil.rmtree("traces/{}".format(p))
+        if remove_backend and os.path.isdir("traces/{}".format(self.p)):
+            shutil.rmtree("traces/{}".format(self.p))
     
     
         with self.model:
@@ -192,68 +184,59 @@ class BayesQuant:
     
             # Save traces to the Text backend i.e a folder called
             # model_name containing csv files for each chain
-            trace_name = 'traces/{}'.format(p)
+            trace_name = 'traces/{}'.format(self.p)
             db = pm.backends.Text(trace_name)
             trace = pm.sample(draws=n_draws, njobs=n_chains, trace=db,
                               tune=2000, nuts_kwargs=dict(target_accept=.95))
         
-        # Save a traceplot 
-        pm.traceplot(trace, varnames=["estimate"])
-        traceplot = "plots/traceplots/{}.png".format(p)
-        plt.savefig(traceplot)
-        plt.close()
 
 
         self.trace = trace
            
         return trace
 
-    def fit(self, model_name=None, n_draws=40000):
+    def fit(self, model_name=None, n_iter=40000):
 
         p = self.p
         if model_name is not None:
             p = model_name
  
         try:
-            os.mkdir("traces/{}".format(p))
+            os.mkdir("traces/{}".format(self.p))
         except:
             print("Dir exists")
 
 
         with self.model:
             
-            inference = pm.ADVI()
+            advi = pm.ADVI()
             # how can the trace be saved when using pm.fit??
-            trace = inference.fit(n=n_draws).sample()
+            #approx = advi.fit(n=n_draws, callbacks=[tracker])
+            approx = advi.fit(n=n_iter)
 
+            plt.plot(advi.hist)
+            plt.legend()
+            plt.title('ELBO')
+            plt.xlabel('Iteration');
+            plt.savefig(os.path.join(self.plot_dir, "ELBO/{}.eps".format(self.p)), format="eps", dpi=900)
+            plt.close()
 
+            trace=approx.sample(10000)
 
-            with open("traces/{}/trace.pik".format(p), 'wb') as f:
+            with open("traces/{}/trace.pik".format(self.p), 'wb') as f:
                 pickle.dump({'model': self.model, 'trace': trace}, f)
 
             #with open('trace.p', 'rb') as f:
             #    test1 = pickle.load(f)
 
-            # trace = pm.fit(n=n_draws, method=inference).sample()
-
-
-        plt.plot(-inference.hist, alpha=.5)
-        plt.legend()
-        plt.ylabel('ELBO')
-        plt.xlabel('iteration');
-        plt.savefig("plots/ELBO/{}".format(p))
-        plt.close()
-
-
- 
         df=pd.DataFrame({"estimate": trace["estimate"][:,0,0]})
-        df.to_csv("traces/{}/chain-0.tsv".format(p))
+        df.to_csv("traces/{}/chain-0.tsv".format(self.p))
 
         self.trace = trace
         
         return trace
     
-    def load_data(self, p, top=3):
+    def load_data(self, p, top=10):
     
         df = pd.DataFrame({"std": np.std(self.data.loc[self.data.protein == p,:].iloc[:,2:5].values, axis=1) + np.std(self.data.loc[self.data.protein == p,:].iloc[:,5:8].values, axis=1)})
         best_data = self.data.loc[self.data.protein == p,:].iloc[df.sort_values(by="std", ascending=True).iloc[:top,:].index,:]
@@ -269,33 +252,36 @@ class BayesQuant:
         self.x_run_sh.set_value(x_run)
         self.x_estimate_sh.set_value(x_estimate)
         self.p = p
+        self.n_peptides = top 
 
 
-    def ppc(self, samples=500):
+    def ppc(self, samples=500, suffix=""):
 
         with self.model:
             sim = pm.sample_ppc(self.trace, samples=samples)["obs"]
 
         sim=sim[:,0,:]
-        peps = list(map(lambda i: sim[:, (i*6):((i*6)+6)], range(n_peptides)))
+        peps = list(map(lambda i: sim[:, (i*6):((i*6)+6)], range(self.n_peptides)))
         estimates = list(map(lambda x: np.mean(x[:,:3], axis=1) - np.mean(x[:,3:6], axis=1), peps))
-        fig, ax = plt.subplots(1,n_peptides, figsize=(15,5))
+        fig, ax = plt.subplots(1,self.n_peptides, figsize=(15,5))
         [ax[i].hist(e) for i, e in enumerate(estimates)]
-        plt.savefig(os.path.join(self.plot_dir, "PPC/histogram_{}".format(p)))
+        [ax[i].set_xlabel("log2FC") for i, e in enumerate(estimates)]
+        [ax[i].set_title("Peptide {}".format(i+1)) for i, e in enumerate(estimates)]
+        
+        plt.savefig(os.path.join(self.plot_dir, "PPC", "histogram_{}.eps".format(self.p)), format="eps", dpi=900)
         plt.close()
-
 
         peps_data = np.vstack(peps)
         sim_transformed = self.pca.transform(peps_data)
-        sim_transformed
-        plt.scatter(sim_transformed[:,0], sim_transformed[:,1], label="Sim obs")
         obs = self.data.loc[self.data.protein == p].iloc[:,2:]
-        obs_transformed = pca.transform(obs)
+        obs_transformed = self.pca.transform(obs)
+
+        plt.scatter(sim_transformed[:,0], sim_transformed[:,1], label="Sim obs")
         plt.scatter(obs_transformed[:,0], obs_transformed[:,1], c = "red", label="True obs")
         plt.legend()
         plt.xlabel("PC1")
         plt.ylabel("PC2")
-        plt.savefig(os.path.join(self.plot_dir, "PPC/PCA_{}".format(p)))
+        plt.savefig(os.path.join(self.plot_dir, "PPC", "PCA_{}{}.eps".format(self.p, suffix)), format="eps", dpi=900)
         plt.close()
 
     def PCA(self):
@@ -310,4 +296,25 @@ class BayesQuant:
         myPlot = sns.FacetGrid(col="taxon", hue='taxon', data=pca_data, size=5)
         myPlot = myPlot.map(plt.scatter, "PC1", "PC2", alpha=0.3)
         myPlot = myPlot.map_dataframe(plt.plot, [min(pca_data.PC1),max(pca_data.PC1)], [0, 0], 'r-').add_legend().set_axis_labels("PC1", "PC2")
-        plt.savefig(os.path.join(self.plot_dir, "PCA.png"))
+        plt.savefig(os.path.join(self.plot_dir, "PCA.eps"), format="eps", dpi=900)
+        plt.close()
+
+    def plot_posterior(self, varnames=["estimate"], ref_val=np.log2(3), color="LightSeaGreen", rope=[-.4, .4], xlim=[-.5,2], suffix=""):
+        plt.rcParams.update({'font.size': 15, 'figure.figsize': (7,5)})
+        pm.plot_posterior(self.trace, varnames=varnames, ref_val=ref_val, color=color, rope=rope)
+        plt.title("log2FC Posterior for {}".format(p.split(";")[0]))
+        plt.xlim(xlim)
+        plt.ylabel("Probability")
+        plt.savefig(os.path.join(self.plot_dir, "posteriors", "{}{}.eps".format(self.p, suffix)), format='eps', dpi=900)
+        plt.savefig(os.path.join(self.plot_dir, "posteriors", "{}{}.png".format(self.p, suffix)))
+        plt.close()
+
+
+    def traceplot(self, varnames=["estimate", "pep", "run"], suffix=""):
+        plt.rcParams.update({'font.size': 15, 'figure.figsize': (6,11)})
+        pm.traceplot(self.trace, varnames=varnames)
+        plt.savefig(os.path.join(self.plot_dir, "traceplots", "{}{}.eps".format(self.p, suffix)), format='eps', dpi=900)
+        plt.savefig(os.path.join(self.plot_dir, "traceplots", "{}{}.png".format(self.p, suffix)))
+        plt.close()
+
+
