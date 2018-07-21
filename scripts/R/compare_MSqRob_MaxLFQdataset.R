@@ -30,7 +30,7 @@ lfq_signif_list <- apply(lfq_intensities, 1, function(row) {
   x <- row[1:3]
   y <- row[4:6]
   t.test(x[!is.infinite(x)], y[!is.infinite(y)], alternative = "two.sided")
-  })
+})
 
 lfq_signif_list <- lapply(lfq_signif_list, function(x) c("p.value" = x$p.value,
                                                          "estimate" = (x$estimate["mean of x"] - x$estimate["mean of y"]),
@@ -108,7 +108,7 @@ RSqM_signif <- read.table(file.path(home_dir, data_dir, "../../model/data/RSqM_s
 # plot_list <-list(semi_volcano_msqrob, semi_volcano_lfq) %>% lapply(function(x) x + guides(col=F))
 # plot_grid(plot_list[[1]], plot_list[[2]],
 #          labels = "AUTO")
- 
+
 # plot(
 #   cumsum(RSqM_signif %>% arrange(qval) %>% .$taxonomy == "Homo sapiens") / nrow(RSqM_signif %>% filter(taxonomy == "Homo sapiens")),
 #   cumsum(RSqM_signif %>% arrange(qval) %>% .$taxonomy != "Homo sapiens") / nrow(RSqM_signif %>% filter(taxonomy != "Homo sapiens")),
@@ -133,7 +133,7 @@ RSqM_signif <- read.table(file.path(home_dir, data_dir, "../../model/data/RSqM_s
 
 ### 3. LOAD Compomics+MSqRob PROCESSED DATA
 RSqM_signif_compomics <- read.table(file.path(home_dir, data_dir, paste0("RSqM_signif_taxon", ".tsv")),
-                    sep = "\t", header = T, stringsAsFactors = F)
+                                    sep = "\t", header = T, stringsAsFactors = F)
 
 # source(file.path(home_dir, data_dir, "../R/check_organism.R"))
 # organism_check <- check_organism(RSqM_signif_compomics$Protein.IDs, split = ", ")
@@ -148,7 +148,7 @@ RSqM_signif_taxon <- RSqM_signif_compomics
 
 # write.table(x = RSqM_signif_taxon, file = file.path(export_folder, paste0("RSqM_signif_taxon", suffix, ".tsv")),
 #             sep = "\t", col.names = T, row.names = F, quote = F)
- 
+
 
 ### 4. PLOT DATA
 nbins <- 100
@@ -193,7 +193,7 @@ nbins <- 100
 
 pipelines <- c("Comp+Rob", "MQ+LFQ", "MQ+Rob"
                # , "MQ+MSBay"
-               )
+)
 
 # MSBayQ <- read.table(file = file.path(data_dir, "../../model/data/MSBayQ.tsv"), header=T, sep = "\t")
 # colnames(MSBayQ)[1] <- "protein"
@@ -206,7 +206,7 @@ tools_data <- rbind(
   cbind(select(lfq_signif, estimate, qval, taxonomy, prot) %>% rename(significance=qval), method = pipelines[2]),
   # cbind(select(MSBayQ, mean, significance, Organism) %>% rename(estimate=mean, taxonomy=Organism), method = pipelines[4]),
   cbind(select(RSqM_signif, estimate, qval, taxonomy, protein) %>% rename(prot = protein, significance = qval), method = pipelines[3])
-  )
+)
 
 tools_data$taxonomy <- tools_data$taxonomy %>% as.character()
 tools_data[tools_data$taxonomy == "Escherichia coli (strain K12)", "taxonomy"] <- "E. coli"
@@ -226,7 +226,7 @@ make_plot_data <- function(curve_data, curve="roc") {
     
     if(curve=="roc") {
       control_data <- rbind(control_data,
-                             data.frame(x=(cumsum(TN) / sum(TN)), y=(cumsum(TP) / sum(TP)), Tool = pip)
+                            data.frame(x=(cumsum(TN) / sum(TN)), y=(cumsum(TP) / sum(TP)), Tool = pip)
       )
       control_data <- rbind(control_data, data.frame(x=1,y=1, Tool=pip))
       
@@ -236,12 +236,12 @@ make_plot_data <- function(curve_data, curve="roc") {
       
     } else if (curve=="prc") {
       control_data <- rbind(control_data,
-                             data.frame(
-                               x=cumsum(TP)/sum(TP),
-                               y = cumsum(TP)/(cumsum(TP) + cumsum(TN)),
-                               Tool = pip
-                               )
+                            data.frame(
+                              x=cumsum(TP)/sum(TP),
+                              y = cumsum(TP)/(cumsum(TP) + cumsum(TN)),
+                              Tool = pip
                             )
+      )
       control_data <- rbind(control_data, data.frame(x=1,y=0, Tool=pip))
     }
     
@@ -279,9 +279,9 @@ plot_curve <- function(curve_data, curve="roc") {
       annot <- str_pad(string = aucs[i], width = 4, side = "right", pad = "0")
       
       curve_plot <- curve_plot +
-      annotate(geom = "label", x = xcoord, y = ycoord, label=paste0("AUC: ", annot),
-               fill=palette[i], color="white", fontface="bold",
-               hjust = 1.2, vjust = -1*i/2 -(i-0.5))
+        annotate(geom = "label", x = xcoord, y = ycoord, label=paste0("AUC: ", annot),
+                 fill=palette[i], color="white", fontface="bold",
+                 hjust = 1.2, vjust = -1*i/2 -(i-0.5))
     }
     curve_plot <- curve_plot + xlab("FPR") + ylab("TPR") + geom_abline(slope=1, intercept=0, linetype="dashed")
   } else {
@@ -299,7 +299,7 @@ curves <- list(ROC_curve, ROC_curve_FC, PRC_curve, PRC_curve_FC) %>%
 
 curves_plot <- plot_grid(
   get_legend(ROC_curve + theme(legend.direction = "horizontal", legend.title = element_text(size=20), legend.text = element_text(size=15))),
-          plot_grid(plotlist = curves, nrow=2,ncol=2, labels="AUTO"), nrow=2, rel_heights = c(1,10))
+  plot_grid(plotlist = curves, nrow=2,ncol=2, labels="AUTO"), nrow=2, rel_heights = c(1,10))
 
 curves_plot
 ggsave(filename = file.path(report_dir, "curves_plot.png"), plot = curves_plot, height=8, width=8)
@@ -310,8 +310,8 @@ tools_data %>% group_by(Tool, Organism, signif < 0.05)  %>% summarise(count = n(
 tools_data$Organism <- factor(tools_data$Organism, levels=c("Homo sapiens", "E. coli"))
 
 gg_color_hue <- function(n) {
-    hues = seq(15, 375, length = n + 1)
-    hcl(h = hues, l = 65, c = 100)[1:n]
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
 }
 palette <- rev(gg_color_hue(2))
 
@@ -372,9 +372,9 @@ volcano_plot <- ggplot(tools_data, aes(col = Organism, x = log2FC, y = -log10(si
 
 
 combined_plot <- plot_grid(histogram_plot,
-          volcano_plot + theme(legend.position = "none") + geom_hline(yintercept = -log10(0.05), linetype="dashed"),
-          box_plot + geom_hline(yintercept = -log10(0.05), linetype="dashed"),
-          nrow=3, labels="AUTO", align = "v")
+                           volcano_plot + theme(legend.position = "none") + geom_hline(yintercept = -log10(0.05), linetype="dashed"),
+                           box_plot + geom_hline(yintercept = -log10(0.05), linetype="dashed"),
+                           nrow=3, labels="AUTO", align = "v")
 
 combined_plot
 
@@ -405,10 +405,10 @@ v <- venn.diagram(x = lapply(pipelines, function(x) true_data[true_data$Tool ==x
                   filename = file.path(report_dir, "vennDiagram.png"), imagetype = "png",
                   # filename = NULL,
                   category.names = tools_data$Tool %>% unique,
-                          fill = c("#ff0000",
-                                   # "#5b00ff",
-                                   "#f5ff6e",
-                                   "#00ff0c"),
+                  fill = c("#ff0000",
+                           # "#5b00ff",
+                           "#f5ff6e",
+                           "#00ff0c"),
                   alpha = 0.5, lwd=0, cex = 1.7, cat.cex=1.3,
                   cat.just=list(c(0,6) , c(1.4,6) , c(.5,-6)))
 
@@ -435,7 +435,7 @@ ycoord <- -Inf
 
 rho <- sapply(round(correlation$corr, digits=2), function(co) {
   paste0("r = ", co)
-  }) %>% as.list %>% unlist
+}) %>% as.list %>% unlist
 
 
 pipeline_pairs_char <- apply(pipeline_pairs, 2, function(x) paste(x, collapse = " - "))
@@ -452,18 +452,18 @@ correlation_plot <- ggplot(data = corr_plot_data, aes(x=x,
   geom_point() +
   facet_wrap(~Tool
              # labeller = labeller(Tool = facet_labels)
-             ) +
+  ) +
   geom_abline(intercept = 0, slope = 1, linetype="dashed") +
   coord_cartesian(xlim = 0.5:4, ylim = 0.5:4) +
   labs(x = "First pipeline", y = "Second pipeline")
 
 
 correlation_plot <- correlation_plot +
-           geom_text(data = annot_data,
-                     aes(x = xcoord, y = ycoord, col=NULL, label=rho),
-                     # label="hola",
-  # fill=palette[i], color="white", fontface="bold",
-  hjust = 1.6, vjust =-2.2, size=7) +
+  geom_text(data = annot_data,
+            aes(x = xcoord, y = ycoord, col=NULL, label=rho),
+            # label="hola",
+            # fill=palette[i], color="white", fontface="bold",
+            hjust = 1.6, vjust =-2.2, size=7) +
   theme_bw(base_size=20) +
   theme(legend.position = "top")
 correlation_plot
@@ -490,8 +490,8 @@ rws <- seq(1, (nrow(RSqM_table)-1), by = 2)
 col <- rep("\\rowcolor[gray]{0.95}", length(rws))
 print(xtable::xtable(RSqM_table, digits=-2,
                      align = c(rep("l", 4), ">{\\itshape}l")), booktabs = TRUE,
-               add.to.row = list(pos = as.list(rws), command = col))
+      add.to.row = list(pos = as.list(rws), command = col))
 
-      # add.to.col = list(pos = list(colnames(RSqM_table) == "Organism"), command = "\\textit"))
+# add.to.col = list(pos = list(colnames(RSqM_table) == "Organism"), command = "\\textit"))
 
 

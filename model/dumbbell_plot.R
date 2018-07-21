@@ -39,7 +39,7 @@ make_dumbbell_plot <- function(MSBayQ, n_pep=NULL, n=5) {
   if(!is.null(n_pep)) {
   p <- p + ggtitle(paste0("Performance. ", n_pep, " peptides"))
 }
- p <- p + theme_bw() + theme(plot.title = element_text(hjust=0.5, face="bold"),
+ p <- p + theme_bw(base_size=15) + theme(plot.title = element_text(hjust=0.5, face="bold"),
                 axis.text.y=element_blank(),
           # plot.background=element_rect(fill="#f7f7f7"),
           # panel.background=element_rect(fill="#f7f7f7"),
@@ -48,7 +48,7 @@ make_dumbbell_plot <- function(MSBayQ, n_pep=NULL, n=5) {
           # panel.grid.major.x=element_line(),
           axis.ticks.y=element_blank(),
           legend.position="top") +
-    scale_x_continuous(breaks=seq(from=-1, to=3, by=0.5), limits=c(-1,3)) +
+    scale_x_continuous(breaks=seq(from=-1, to=3, by=1), limits=c(-1,3)) +
     facet_wrap(~n_peptides, nrow = number_facets/2)
   return(p)
 }
@@ -68,5 +68,6 @@ colnames(MSBayQ)[1] <- "protein"
 print(colnames(MSBayQ))
 
 p1 <- make_dumbbell_plot(MSBayQ[MSBayQ$n_peptides %in% c(2,3,4,6,7,10),], n_pep = NULL, n=10) 
+p1
 ggsave(paste0("../../Report/plots/performance.eps"), height = 7, width=5, plot = p1)
 ggsave(paste0("../../Report/plots/performance.png"), height = 7, width=5, plot = p1)

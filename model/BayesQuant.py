@@ -16,13 +16,14 @@ class BayesQuant:
 
     "Compile a BayesQuant model, load data into it and posterior distributions"
 
-    def __init__(self, data=None, features=None, plot_dir="../../Report/plots"):
+    def __init__(self, data=None, features=None, plot_dir="../../Report/plots", traces_dir="traces"):
         self.data = data
         self.features = features
         self.p = None
         self.trace = None
         self.pca = None
         self.plot_dir = plot_dir
+        self.traces_dir = traces_dir 
         self.sequence = False
 
     def read_data(self, data_path="data/data.tsv", features_path="data/advanced_features.tsv"):
@@ -169,12 +170,12 @@ class BayesQuant:
             p = model_name    
 
         # Check working environment  
-        if not os.path.isdir("traces") or not os.path.isdir(os.path.join(self.plot_dir, "traceplots")):
+        if not os.path.isdir(self.traces_dir) or not os.path.isdir(os.path.join(self.plot_dir, "traceplots")):
             msg = "Please create a traces dir and a traceplots dir before running this code"
             raise Exception(msg)
     
         if remove_backend and os.path.isdir("traces/{}".format(self.p)):
-            shutil.rmtree("traces/{}".format(self.p))
+            shutil.rmtree("{}/{}".format(self.traces_dir, self.p))
     
     
         with self.model:
@@ -184,7 +185,7 @@ class BayesQuant:
     
             # Save traces to the Text backend i.e a folder called
             # model_name containing csv files for each chain
-            trace_name = 'traces/{}'.format(self.p)
+            trace_name = '{}/{}'.format(self.traces_dir, self.p)
             db = pm.backends.Text(trace_name)
             trace = pm.sample(draws=n_draws, njobs=n_chains, trace=db,
                               tune=2000, nuts_kwargs=dict(target_accept=.95))
@@ -202,7 +203,7 @@ class BayesQuant:
             p = model_name
  
         try:
-            os.mkdir("traces/{}".format(self.p))
+            os.mkdir("{}/{}".format(self.traces_dir, self.p))
         except:
             print("Dir exists")
 
@@ -223,14 +224,14 @@ class BayesQuant:
 
             trace=approx.sample(10000)
 
-            with open("traces/{}/trace.pik".format(self.p), 'wb') as f:
+            with open("{}/{}/trace.pik".format(self.traces_dir, self.p), 'wb') as f:
                 pickle.dump({'model': self.model, 'trace': trace}, f)
 
             #with open('trace.p', 'rb') as f:
             #    test1 = pickle.load(f)
 
         df=pd.DataFrame({"estimate": trace["estimate"][:,0,0]})
-        df.to_csv("traces/{}/chain-0.tsv".format(self.p))
+        df.to_csv("{}/{}/chain-0.tsv".format(self.traces_dir, self.p))
 
         self.trace = trace
         
@@ -268,7 +269,7 @@ class BayesQuant:
         [ax[i].set_xlabel("log2FC") for i, e in enumerate(estimates)]
         [ax[i].set_title("Peptide {}".format(i+1)) for i, e in enumerate(estimates)]
         
-        plt.savefig(os.path.join(self.plot_dir, "PPC", "histogram_{}.eps".format(self.p)), format="eps", dpi=900)
+        plt.savefig(os.path.join(self.plot_dir, "PPC", "eps", "histogram_{}.eps".format(self.p)), format="eps", dpi=900)
         plt.close()
 
         peps_data = np.vstack(peps)
@@ -276,15 +277,15 @@ class BayesQuant:
         obs = self.data.loc[self.data.protein == p].iloc[:,2:]
         obs_transformed = self.pca.transform(obs)
 
-        plt.scatter(sim_transformed[:,0], sim_transformed[:,1], label="Sim obs")
-        plt.scatter(obs_transformed[:,0], obs_transformed[:,1], c = "red", label="True obs")
+        plt.scatter(sim_transformed[:,0], sim_transformed[:,1], c = "#4C2D73", label="Sim obs")
+        plt.scatter(obs_transformed[:,0], obs_transformed[:,1], c = "#AAA039", label="True obs")
         plt.legend()
         plt.xlabel("PC1")
         plt.ylabel("PC2")
-        plt.savefig(os.path.join(self.plot_dir, "PPC", "PCA_{}{}.eps".format(self.p, suffix)), format="eps", dpi=900)
+        plt.savefig(os.path.join(self.plot_dir, "PPC", "eps", "PCA_{}{}.eps".format(self.p, suffix)), format="eps", dpi=900)
         plt.close()
 
-    def PCA(self):
+    def PCA(self, filename="PCA", facet=True):
         x = self.data.values[:,2:]
         pca = PCA(n_components=2)
         pca.fit(x)
@@ -292,29 +293,39 @@ class BayesQuant:
         print("Percentage of variance explained by PC1 and PC2")
         print(pca.explained_variance_ratio_*100)
         x_transformed = pca.transform(x)
-        pca_data = pd.DataFrame({"taxon": self.data.taxon, "PC1": x_transformed[:,0], "PC2": x_transformed[:,1]})
-        myPlot = sns.FacetGrid(col="taxon", hue='taxon', data=pca_data, size=5)
-        myPlot = myPlot.map(plt.scatter, "PC1", "PC2", alpha=0.3)
-        myPlot = myPlot.map_dataframe(plt.plot, [min(pca_data.PC1),max(pca_data.PC1)], [0, 0], 'r-').add_legend().set_axis_labels("PC1", "PC2")
-        plt.savefig(os.path.join(self.plot_dir, "PCA.eps"), format="eps", dpi=900)
-        plt.close()
+        if not facet:
+            pca_data = pd.DataFrame({"PC1": x_transformed[:,0], "PC2": x_transformed[:,1]})
+            myPlot = plt.scatter(pca_data["PC1"], pca_data["PC2"], s=5, alpha=0.3)
+            plt.savefig(os.path.join(self.plot_dir, filename+".eps"), format="eps", dpi=900)
+            plt.savefig(os.path.join(self.plot_dir, filename+".png"))
+            plt.close()
+
+        else:
+            pca_data = pd.DataFrame({"taxon": self.data.taxon, "PC1": x_transformed[:,0], "PC2": x_transformed[:,1]})
+            myPlot = sns.FacetGrid(col="taxon", hue='taxon', data=pca_data, size=5)
+            myPlot = myPlot.map(plt.scatter, "PC1", "PC2", alpha=0.3)
+            myPlot = myPlot.map_dataframe(plt.plot, [min(pca_data.PC1),max(pca_data.PC1)], [0, 0], 'r-').add_legend().set_axis_labels("PC1", "PC2")
+            plt.savefig(os.path.join(self.plot_dir, filename+".eps"), format="eps", dpi=900)
+            plt.savefig(os.path.join(self.plot_dir, filename+".png"))
+            plt.close()
+            plt.close()
 
     def plot_posterior(self, varnames=["estimate"], ref_val=np.log2(3), color="LightSeaGreen", rope=[-.4, .4], xlim=[-.5,2], suffix=""):
         plt.rcParams.update({'font.size': 15, 'figure.figsize': (7,5)})
         pm.plot_posterior(self.trace, varnames=varnames, ref_val=ref_val, color=color, rope=rope)
-        plt.title("log2FC Posterior for {}".format(p.split(";")[0]))
+        plt.title("log2FC Posterior for {}".format(self.p.split(";")[0]))
         plt.xlim(xlim)
         plt.ylabel("Probability")
-        plt.savefig(os.path.join(self.plot_dir, "posteriors", "{}{}.eps".format(self.p, suffix)), format='eps', dpi=900)
-        plt.savefig(os.path.join(self.plot_dir, "posteriors", "{}{}.png".format(self.p, suffix)))
+        plt.savefig(os.path.join(self.plot_dir, "posteriors", "eps", "{}{}.eps".format(self.p, suffix)), format='eps', dpi=900)
+        plt.savefig(os.path.join(self.plot_dir, "posteriors", "png", "{}{}.png".format(self.p, suffix)))
         plt.close()
 
 
     def traceplot(self, varnames=["estimate", "pep", "run"], suffix=""):
         plt.rcParams.update({'font.size': 15, 'figure.figsize': (6,11)})
         pm.traceplot(self.trace, varnames=varnames)
-        plt.savefig(os.path.join(self.plot_dir, "traceplots", "{}{}.eps".format(self.p, suffix)), format='eps', dpi=900)
-        plt.savefig(os.path.join(self.plot_dir, "traceplots", "{}{}.png".format(self.p, suffix)))
+        plt.savefig(os.path.join(self.plot_dir, "traceplots", "eps", "{}{}.eps".format(self.p, suffix)), format='eps', dpi=900)
+        plt.savefig(os.path.join(self.plot_dir, "traceplots", "png", "{}{}.png".format(self.p, suffix)))
         plt.close()
 
 

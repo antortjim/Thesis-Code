@@ -1,43 +1,28 @@
 #!/usr/bin/Rscript
 
-library(GenomicRanges)
-library(seqinr)
 library(dplyr)
-library(readxl)
-library(Biostrings)
-library(MSqRob)
-library(MSnbase)
-library(tidyr)
 library(optparse)
-# frame_files <- lapply(sys.frames(), function(x) x$ofile)
-# frame_files <- Filter(Negate(is.null), frame_files)
-# PATH <- dirname(frame_files[[length(frame_files)]])
-# print(PATH)
-
-
 
 home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
 option_list <- list(
-  make_option(c("--pepf"), type="character",
-              default="MaxLFQ/peptides.txt"),
-  make_option(c("--protein_file"), type="character",
-              default="MaxLFQ/proteinGroups.txt"),
-  make_option(c("--annotation_df"), type="character",
-              default="data/annotation_df.tsv"),
-  make_option(c("--exp"), type="character",
-              default= "data/exp_annotation.tsv"),
-  make_option(c("--output"), type="character",
-              default= "data"),
+  make_option(c("--pepf"), type="character"),
+  make_option(c("--protein_file"), type="character", default=""),
+  make_option(c("--annotation_df"), type="character"),
+  make_option(c("--exp"), type="character"),
+  make_option(c("--output"), type="character"),
   make_option(c("--normalisation"), type="character",
               default= "none", help = "none/quantiles"),
-  make_option(c("--extract_features"), action="store_true", default=FALSE,
+  make_option(c("--extract_neighborhood"), action="store_true", default=FALSE,
               help="Extract sequence features? Takes a while..."),
-  make_option(c("--organisms"), type="character", default = "ecoli,homo_sapiens",
+  make_option(c("--smallest_unique_groups"), action="store_true", default=FALSE,
+              help="Simplify protein groups"),
+  make_option(c("--organisms"), type="character", default="",
+              # default = "ecoli,homo_sapiens",
               help="Organisms present in the data.
               A fasta file with the same name under the fasta dir is required.
               Each organism must be provided separated by ,.
               If more than one organism is passed, the annotation_df argument is mandatory"),
-  make_option(c("--filetype"), type="character", default="MaxQuant")
+  make_option(c("--filetype"), type="character", help="MaxQuant/moFF")
   
 )
 
@@ -45,21 +30,62 @@ cat("Parsing input parameters and reading data")
 
 opt_parser <- OptionParser(option_list=option_list)
 opt <- parse_args(opt_parser)
-extract_features <- opt$extract_features
+exception <- F
+# Check input arguments
+if(is.null(opt$exp)) {
+  cat("Please supply the experimental design with --exp")
+  exception <- T
+} else if((length(strsplit(opt$organisms, split = ",") %>% unlist) > 1) & is.null(opt$annotation_df)) {
+  cat("Supply annotation df")
+  exception <- T
+} else if(!any(opt$filetype %in% c("MaxQuant", "moFF"))) {
+  cat("Please supply a valid filetype: either MaxQuant or moFF")
+  exception <- T
+} else  if(!file.exists(opt$pepf)) {
+  cat("Peptide file not found")
+  exception <- T
+} else if (!file.exists(opt$exp)) {
+  cat("Experimental design file not found")
+  exception <- T
+} else if(opt$protein_file != "" & !file.exists(opt$protein_file)) {
+  cat("Supplied protein file not found")
+  exception <- T
+}
+
+if (exception) {
+  cat("Usage:")
+  quit(status=1)
+}
+
+library(GenomicRanges)
+library(readxl)
+library(Biostrings)
+library(MSqRob)
+library(MSnbase)
+library(tidyr)
+library(seqinr)
+
+
+extract_neighborhood <- opt$extract_neighborhood
 organisms <- strsplit(opt$organisms, split=",") %>% unlist
+exp_annotation <- read.table(file = opt$exp, header = T, sep = "\t")
+file_proteinGroups <- opt$protein_file
+file_peptides_txt <- opt$pepf
 
 if(!is.null(opt$annotation_df)) {
   annotation_df <- read.table(file = opt$annotation_df, sep = "\t", header=T, stringsAsFactors = F)
 }
-file_peptides_txt <- opt$pepf
+
+# exp_annotation <- read.table(file = "thp1/exp_annotation.tsv", header = T, sep = "\t")
+# file_peptides_txt <- "thp1/peptide_summary_intensity_moFF_run_pellet.tab"
+# opt <- list(normalisation = "quantiles", smalles_unique_grops=T, filetype="moFF")
+
 
 # Import MSnSet
-peptides_set <- import2MSnSet(file_peptides_txt, filetype=opt$filetype, remove_pattern=TRUE)
-
-file_proteinGroups <- opt$protein_file
+peptides_set <- import2MSnSet(file_peptides_txt, filetype=opt$filetype,remove_pattern = T)
 
 
-exp_annotation <- read.table(file = opt$exp, header = T, sep = "\t")
+
 ###################################
 
 cat("Preprocessing MSnSet")
@@ -72,28 +98,34 @@ if(opt$filetype == "MaxQuant") {
                                                    base=2, # base to use in the log transform
                                                    # normalisation="quantiles", # remove systematic bias across samples (runs)
                                                    normalisation=opt$normalisation,
-                                                   smallestUniqueGroups=TRUE, # occam razor for the protein groups
+                                                   smallestUniqueGroups=opt$smallest_unique_groups, # occam razor for the protein groups
                                                    useful_properties=c("Proteins","Sequence"), # columns to keep in further analysis
                                                    filter=c("Potential.contaminant","Reverse"), # remove entries positive for these fields
                                                    remove_only_site=TRUE, # true if we want to discard proteins identified with modified peptides
                                                    file_proteinGroups=file_proteinGroups, # this needs to be passed if remove_only_site is True
                                                    filter_symbol="+", # if +, the field is positive
                                                    minIdentified=2 # the peptide needs to have been identified at least twice in the dataset
-)
+                                                   )
+  cat("Building protdata object")
+  system.time(proteins_set <- MSnSet2protdata(peptides_set_preprocessed, accession="Proteins"))
+  
 } else if (opt$filetype == "moFF") {
-  peptides_set_preprocessed <- preprocess_MSnSet(MSnSet = peptides_msnset,
+  peptides_set_preprocessed <- preprocess_MSnSet(MSnSet = peptides_set,
                                                  accession = "prot",
-                                                 exp_annotation = exp_annot,
-                                                 logtransform = TRUE, base = 2,
+                                                 exp_annotation = exp_annotation,
+                                                 logtransform = TRUE,
+                                                 base = 2,
                                                  normalisation = opt$normalisation,
-                                                 smallestUniqueGroups = smallest_unique_groups, split = ", ",
+                                                 smallestUniqueGroups = opt$smallest_unique_groups,
+                                                 split = ", ",
                                                  useful_properties = c("prot", "peptide"),
                                                  minIdentified = 2)
+  cat("Building protdata object")
+  system.time(proteins_set <- MSnSet2protdata(peptides_set_preprocessed, accession="prot"))
+  
 }
 # Introduce into the MSqRob pipeline
 # MSnSet -> protdata
-cat("Building protdata object")
-system.time(proteins_set <- MSnSet2protdata(peptides_set_preprocessed, accession="Proteins"))
 cat("Generating DataFrame")
 data <- getData(proteins_set)
 data_df <- data %>% do.call(rbind, .)
@@ -105,7 +137,7 @@ peptides <- data_df
 ## SEQUENCE FEATURE EXTRACTION
 #############################################################################################
 
-# if(opt$extract_features) {
+# if(opt$extract_neighborhood) {
 #   cat("Extrating sequence features")
 #   peptides <- peptides %>% select(Sequence, Proteins)
 #   peptides$Sequence <- as.character(peptides$Sequence)
@@ -259,19 +291,22 @@ peptides <- data_df
 # }
 
 # Get organism link
-cat("Introducing annotation")
-data_df_subset <- left_join(data_df_subset, annotation_df, by = "Proteins")
-
+if(!is.null(opt$annotation_df)) {
+  cat("Introducing annotation")
+  data_df_subset <- left_join(data_df_subset, annotation_df, by = "Proteins")
+}
 # Make data wide
 data_df_subset_wide <- data_df_subset %>% select(-condition) %>% spread(run, quant_value)
+
+
+# Remove missing data
+cat("Removing missing data")
+data_df_subset_wide <- data_df_subset_wide[complete.cases(data_df_subset_wide),]
 
 if(is.null(opt$annotation_df)) {
   data_df_subset_wide <- cbind(data_df_subset_wide[,1:2], "taxon"=NA, data_df_subset_wide[,3:ncol(data_df_subset_wide)])
 }
 
-# Remove missing data
-cat("Removing missing data")
-data_df_subset_wide <- data_df_subset_wide[complete.cases(data_df_subset_wide),]
 
 colnames(data_df_subset_wide)[1:3] <- c("peptide", "protein", "taxon")
 # data_df_subset_wide %>% group_by(taxon) %>% summarise(count = n())
@@ -288,7 +323,7 @@ data_df_subset_wide_solid <- data_df_subset_wide_solid %>% arrange(peptide)
 
 cat(paste0("Exporting data for ", nrow(data_df_subset_wide_solid), " peptides"))
 
-if(opt$extract_features) {
+if(opt$extract_neighborhood) {
   
   result_df <- result_df[-(result_df %>% is.na %>% which(arr.ind = T) %>% .[, 1]),]
   result_df <- result_df[result_df[,"pep"] %in% data_df_subset_wide_solid$peptide,]
@@ -300,6 +335,5 @@ if(opt$extract_features) {
 write.table(file = file.path(opt$output, "ms1_intensities.tsv"), sep = "\t",
             x = data_df_subset_wide_solid %>% select(-peptide), col.names=T, row.names=F, quote=F)
 
-# data_df_subset_wide_solid$peptide %>% grep(pattern = "U")
 write.table(file = file.path(opt$output, "peptides.tsv"), sep = "\t",
             x = data_df_subset_wide_solid %>% select(peptide), col.names=T, row.names=F, quote=F)
