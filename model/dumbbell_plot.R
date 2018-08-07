@@ -8,25 +8,26 @@ gg_color_hue <- function(n) {
 palette <- rev(gg_color_hue(2))
 
 
-make_dumbbell_plot <- function(MSBayQ, n_pep=NULL, n=5) {
+make_dumbbell_plot <- function(BayesQuant, n_pep=NULL, n=5,sep=0.25) {
   
-  print(n)
-  # if (!is.null(n_pep)) MSBayQ <- MSBayQ[MSBayQ$n_peptides == n_pep,]
-  MSBayQ <- MSBayQ %>%
+  # if (!is.null(n_pep)) BayesQuant <- BayesQuant[BayesQuant$n_peptides == n_pep,]
+  bayesquant <- bayesquant %>%
     group_by(n_peptides, Organism) %>%
-    filter(row_number() < 6)
+    filter(row_number() < n+1)
   
-  number_facets <- length(unique(MSBayQ$n_peptides))
+  number_facets <- length(unique(bayesquant$n_peptides))
+  print(number_facets)
+  print(n)
   
-  MSBayQ <- MSBayQ %>% arrange(n_peptides, Organism)
-  MSBayQ$protein <- rep(seq(0,(n/2-.5), by=.5), times=number_facets)
+  bayesquant <- bayesquant %>% arrange(n_peptides, Organism)
+  bayesquant$protein <- rep(seq(from = 0, by=sep, length.out = n*2), times=number_facets)
       
   # selected <- lapply(selected, function(x) sample(x, min(n, length(x)))) %>% unlist
   
-  # MSBayQ <- MSBayQ[MSBayQ$protein %in% selected, ]
-  MSBayQ$protein <- as.character(MSBayQ$protein) %>% lapply(function(x) strsplit(x, split=";") %>% unlist %>% .[1] %>% substr(1,6)) %>% unlist
-  #     print(MSBayQ))
-  p <- ggplot(data=MSBayQ, aes(x=hpd_2.5, xend=hpd_97.5, y = protein, color=Organism)) +
+  # BayesQuant <- BayesQuant[BayesQuant$protein %in% selected, ]
+  bayesquant$protein <- as.character(bayesquant$protein) %>% lapply(function(x) strsplit(x, split=";") %>% unlist %>% .[1] %>% substr(1,6)) %>% unlist
+  #     print(BayesQuant))
+  p <- ggplot(data=bayesquant, aes(x=hpd_2.5, xend=hpd_97.5, y = protein, color=Organism)) +
     geom_vline(xintercept=-0.4, col=palette[1], linetype="dashed") +
     geom_vline(xintercept=0.4, col=palette[1], linetype="dashed") +
     geom_vline(xintercept=log2(3), col=palette[2], linetype="dashed") +
@@ -53,21 +54,23 @@ make_dumbbell_plot <- function(MSBayQ, n_pep=NULL, n=5) {
   return(p)
 }
 
-make_error_hdi_interval_plot <- function(MSBayQ, n_pep=NULL) {
-  if (!is.null(n_pep)) MSBayQ <- MSBayQ[MSBayQ$n_peptides == n_pep,]
-  MSBayQ$true <- 0
-  MSBayQ[MSBayQ$Organism == "Escherichia coli (strain K12)","true"] <- log2(3)
-  print(cor(x=MSBayQ$`hpd_97.5` - MSBayQ$`hpd_2.5`, y=abs(MSBayQ$mean-MSBayQ$true)))
-  ggplot(data = MSBayQ, mapping = aes(x = (`hpd_97.5` - `hpd_2.5`), y = abs(mean - true), col = Organism)) + geom_point()
+make_error_hdi_interval_plot <- function(BayesQuant, n_pep=NULL) {
+  if (!is.null(n_pep)) BayesQuant <- BayesQuant[BayesQuant$n_peptides == n_pep,]
+  BayesQuant$true <- 0
+  BayesQuant[BayesQuant$Organism == "Escherichia coli (strain K12)","true"] <- log2(3)
+  print(cor(x=BayesQuant$`hpd_97.5` - BayesQuant$`hpd_2.5`, y=abs(BayesQuant$mean-BayesQuant$true)))
+  ggplot(data = BayesQuant, mapping = aes(x = (`hpd_97.5` - `hpd_2.5`), y = abs(mean - true), col = Organism)) + geom_point()
   
 }
 
 
-MSBayQ <- read.table("data/MSBayQ.tsv", header=T, sep = "\t")
-colnames(MSBayQ)[1] <- "protein"
-print(colnames(MSBayQ))
+BayesQuant <- read.table("data/bayesquant_res.tsv", header=T, sep = "\t")
+colnames(BayesQuant)[1] <- "protein"
+print(colnames(BayesQuant))
 
-p1 <- make_dumbbell_plot(MSBayQ[MSBayQ$n_peptides %in% c(2,3,4,6,7,10),], n_pep = NULL, n=10) 
+bayesquant <- BayesQuant[BayesQuant$n_peptides %in% c(2,10),]
+
+p1 <- make_dumbbell_plot(bayesquant, n_pep = NULL, n=5,sep=0.05) 
 p1
 ggsave(paste0("../../Report/plots/performance.eps"), height = 7, width=5, plot = p1)
 ggsave(paste0("../../Report/plots/performance.png"), height = 7, width=5, plot = p1)
