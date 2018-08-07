@@ -5,8 +5,8 @@ library("viridis")
 library("cowplot")
 library(Cairo)
 theme_set(theme_bw())
-home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", "/z/home/aoj")
-exp_dir <- "thesis/genedata/maxlfq"
+home_dir <- ifelse(Sys.info()["sysname"] == "Windows", "//hest/aoj", ifelse(Sys.info()["user"] == "aoj", "/z/home/aoj", "/home/antortjim/"))
+exp_dir <- ifelse(Sys.info()["user"] == "aoj", "thesis/genedata/maxlfq", "MEGA/Master/Thesis/Code/scripts/data")
 input_dir <- file.path(home_dir, exp_dir, "/peptideShaker_out/reports")
 #reports <- read.table(file.path(input_dir, "Default_PSM_Report.txt"), sep = "\t", header=T)
 sample_name <- "20070904_CL_Orbi4_Offgel_XIC_Hela60_Ecoli10_black_Frac13_3"
@@ -134,12 +134,12 @@ ggplot(data = custom_report_best %>% filter(Measured.Charge == "2+"),
 ggsave("plot1_R.png")
 
 ### EVALUATE MATCHING PERFORMANCE
-exp_design <- read.table(file = file.path(home_dir, exp_dir, "data", "experimental_design.tsv"),header=T)
+exp_design <- read.table(file = file.path(home_dir, exp_dir, "experimental_design.tsv"),header=T)
 count_spectra <- read.table(file = file.path(home_dir, exp_dir, "count_spectra.txt"), stringsAsFactors = F, col.names = c("Name", "total", "match"))
 count_spectra$Name <- count_spectra$Name %>% strsplit(., split = "\\/") %>% lapply(., function(x) unlist(strsplit(rev(x)[[1]], split = "\\."))[1]) %>% unlist
 count_spectra <- left_join(count_spectra, select(exp_design, Fraction, Experiment, Replicate, Name), by = "Name")
 
-count_spectra$`% Matched` <- count_spectra$match / count_spectra$total
+count_spectra$`% Matched` <- 100* count_spectra$match / count_spectra$total
 
 match_percent_rect <- ggplot(count_spectra, aes(xmin = (Fraction-.5), xmax = (Fraction+.5),
                                                 ymin = Replicate-.5, ymax=Replicate+.5,
@@ -161,7 +161,8 @@ plot_legend <- get_legend(match_percent_rect)
 match_percent_rect <- match_percent_rect + guides(fill=F)
 match_percent_rect
 
-ggsave(filename = file.path(home_dir, exp_dir, "figures", "match_percent_rect.png"))
+plot_dir <- file.path("MEGA/Master/Thesis/Report/plots/")
+ggsave(filename = file.path(home_dir, plot_dir, "match_percent_rect.png"))
 
 count_spectra %>% summarise(mean = mean(`% Matched`))
 count_spectra %>% filter(Fraction < 14) %>% summarise(mean = mean(`% Matched`))
@@ -187,8 +188,9 @@ plot_list <- list(match_percent_rect, match_percent_overplot) %>%
 
 combination <- plot_grid(plotlist = plot_list,
                          #rel_heights = c(0.3,0.7), rel_widths = c(1,1),
-                         ncol=1, nrow=2, labels = c("A", "B"), vjust = c(1,1))
+                         ncol=1, nrow=2, labels = c("A", "B"), rel_heights = c(.75,1), vjust = c(1,1))
 combination <- plot_grid(plot_legend,
           combination,
           nrow=2, rel_heights = c(0.1, 1))
-ggsave(plot = combination, filename = file.path(home_dir, exp_dir, "figures", "match_percent.png"))
+ggsave(plot = combination, filename = file.path(home_dir, plot_dir, "match_percent.png"), height = 8, width = 6)
+
