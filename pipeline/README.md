@@ -2,8 +2,15 @@
 
  * [Introduction](#introduction)
  * [Minimum Requirements](#minimum-requirements)
- * [Documentation](#Documentation)
- * [Output Data](#output-data)
+ * [Documentation](#documentation)
+   - [Working directory](#working-directory)
+   - [Load settings](#load-settings)
+   - [Create decoy database](#create-decoy-database)
+   - [Search spectra](#search-spectra)
+   - [Integrate and validate results](#integrate-and-validate-results)
+   - [MBR and Apex intensity extraction](#mbr-and-apex-intensity-extraction)
+   - [Relative quantification](#[relative-quantification)
+   - [Biological inference](#biological-inference)
 ---
 
 ## Introduction ##
@@ -39,17 +46,9 @@ The pipeline is powered by some the software kindly made publicly available by [
 
 In this section we will go through the bash scripts implementing the pipeline
 
- * [Working directory](#Working directory)
- * [Load settings](#Load settings)
- * [Create decoy database](#Create decoy database)
- * [Search spectra](#Search spectra)
- * [Integrate and validate results](#Integrate and validate results)
- * [MBR and Apex intensity extraction](#MBR and Apex intensity extraction)
- * [Relative quantification](#[Relative quantification)
- * [Biological inference](#Biological inference)
- ---
+
  
-### Working directory
+### Working directory ###
 
 The software is designed to work under the following directory structure:
 
@@ -59,7 +58,7 @@ The software is designed to work under the following directory structure:
 ```
  
  
-### Load settings
+### Load settings ###
 
 The analysis of MS data requires the declaration many experimental variables that customize how the algorithms are to be run. For example:
 
