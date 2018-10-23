@@ -47,8 +47,9 @@ In this section we will go through the bash scripts implementing the pipeline
  * [MBR and Apex intensity extraction](#MBR and Apex intensity extraction)
  * [Relative quantification](#[Relative quantification)
  * [Biological inference](#Biological inference)
+ ---
  
-## Working directory
+### Working directory
 
 The software is designed to work under the following directory structure:
 
@@ -58,7 +59,7 @@ The software is designed to work under the following directory structure:
 ```
  
  
-## Load settings
+### Load settings
 
 The analysis of MS data requires the declaration many experimental variables that customize how the algorithms are to be run. For example:
 
@@ -99,7 +100,7 @@ which will create a human readable .txt file containing these key-value pairs in
 
 A full list of the settings that can be defined and a comprehensive guide on `IdentificationParametersCLI`is available at [https://github.com/compomics/compomics-utilities/wiki/IdentificationParametersCLI](https://github.com/compomics/compomics-utilities/wiki/IdentificationParametersCLI)
 
-## Create decoy database
+### Create decoy database
 
 
 #### Why a decoy database is needed
@@ -135,7 +136,7 @@ For exampe, if we get 10 hits to the target database with score greater than s, 
 ```
 this requires the existence in the `/$ROOT_DIR $EXP_NAME/databases/` folder of .fasta files with the names declared in the *pipeline_settings.txt* file (without extension, i.e mydatabase.fasta should be declared as mydatabase in the file. All .fasta files will be made into a single `all.fasta` file from which the decoy database will be obtained. As a result, a target and decoy database will be available in at `/$ROOT_DIR $EXP_NAME/databases/`.
 
-## Search spectra
+### Search spectra
 
 **Input**
 
@@ -168,7 +169,7 @@ Running this command will trigger a call to SearchGUI with the search engines an
 
 * As it stands, once all the searches are over, it will call the next script in the pipeline, `call_peptide_shaker.sh`. 
 
-## Integrate and validate results
+### Integrate and validate results
 
 **Input**
 
@@ -194,7 +195,7 @@ SearchGUI zip files can be passed to PeptideShaker to perform the following task
 ```
 ./call_peptide_shaker.sh $ROOT_DIR $EXP_NAME
 ```
-## MBR and Apex intensity extraction
+### MBR and Apex intensity extraction
 
 **Input**
 
@@ -222,7 +223,7 @@ SearchGUI zip files can be passed to PeptideShaker to perform the following task
 ./call_moff.sh $ROOT_DIR $EXP_NAME
 ```
 
-## Relative quantification
+### Relative quantification
 
 **Input**
 
@@ -274,7 +275,7 @@ It works by:
 
 `nohup Rscript scripts/R/moff_to_msqrob.R --root_dir `pwd` --exp_name maxlfq --moff_file peptide_summary_intensity_moFF_run.tab --sample_filter "" --experiment_contrasts conditionH-conditionL --save_model --suffix "" [--fraction_normalized] &`
 
-## Biological inference
+### Biological inference
 
 **Input**
 
