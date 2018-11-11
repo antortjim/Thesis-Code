@@ -31,7 +31,7 @@ The pipeline is powered by some the software kindly made publicly available by [
 3. moFF (Compomics, requires Python)
 4. MSqRob (Statomics, requires R)
 
-** DISCLAIMER: All credit to the awesome functionality, flexibility and easiness of deployment goes to the developers of these tools (not me).** Here it will be showed how I combined them to provide a through analysis from the mgf file to protein identifications and quantities.
+**DISCLAIMER: All credit to the awesome functionality, flexibility and easiness of deployment goes to the developers of these tools (not me).** Here it will be showed how I combined them to provide a through analysis from the mgf file to protein identifications and quantities.
 
 
 ## Minimum requirements ##
@@ -46,8 +46,6 @@ The pipeline is powered by some the software kindly made publicly available by [
 
 In this section we will go through the bash scripts implementing the pipeline
 
-
- 
 ### Working directory ###
 
 The software is designed to work under the following directory structure:
@@ -62,8 +60,8 @@ The software is designed to work under the following directory structure:
 
 The analysis of MS data requires the declaration many experimental variables that customize how the algorithms are to be run. For example:
 
-+ (*Required*) **Cleaving enzyme**: describes the sequence specificity of the enzyme used to cleave whole denaturalized proteins into peptides. Integrate and validate results
-+ **Missed cleavages**: how many target sequences of the enzyme are allowed to be left without cleaveged (i.e. missed by the enzyme).
++ (*Required*) **Cleaving enzyme**: describes the sequence specificity of the enzyme used to cleave whole denaturalized proteins into peptides.
++ **Missed cleavages**: how many target sequences of the enzyme are allowed to be left uncleaved (i.e. missed by the enzyme).
 + (*Required*) **Reference protein database**: set of proteins that the spectra will be tried to be matched to.
 + **Variable/Fixed peptide modifications**: cuztomize residual weights to take into account a possible experimental.
 + **Peptide and fragment tolerance**: error/inaccuracy allowed between measured and theoretical m/z, at the MS1 (peptide) and MS2 (fragment) levels. 
@@ -103,12 +101,12 @@ A full list of the settings that can be defined and a comprehensive guide on `Id
 
 
 #### Why a decoy database is needed
-Searching MS spectra against a proteome database will return many hits. Unfortunately, many of them could be wrong, i.e spurious peptide-to-spectrum matches (PSMs) where the peptide that generated the registered spectrum is not the same as the one the spectrum is matched to. In order to take this into account, hits are provided a score, similar to what BLAST does with sequence alignments.
+Searching MS spectra against a proteome database will return many hits. Unfortunately, many of them could be wrong, i.e. spurious peptide-to-spectrum matches (PSMs) where the peptide that generated the registered spectrum is not the same as the one the spectrum is matched to. In order to take this into account, hits are provided a score, similar to what BLAST does with sequence alignments.
 
 A score is high or low in comparison with the score registered by hits of the same spectrum to other peptides in the database. Even if a score is provided, it is very difficult to assert whether a specific hit is a true hit or a mistake, because in principle, we don't know what constitutes a 'high' enough score.
 
-However, thanks to statistics, it is straightforward to estimate with fairly high precission how many false hits are there within a sufficiently large group of supposedly true hits. One method to achieve this is via the creation of a *decoy database*.
-A decoy databse consists of a "fake" version of the original reference database (target database) that is used to estimate the false discovery rate (FDR) among the results. It works as a negative control, where we know the ground truth of the PSM status. It's a fake database, therefore, the proteins in it don't exist and any matches to them are definitely random matches.
+However, thanks to statistics, estimating with fairly high precission how many false hits are there within a sufficiently large group of supposedly true hits becomes straightforward. One method to achieve this is via the creation of a *decoy database*.
+A decoy databse consists of a "fake" version of the original reference or *target* *database* that is used to estimate the false discovery rate (FDR) among hits to the target. It works as a negative control, where we know the ground truth of the PSM status. It's a fake database, therefore, the proteins in it don't exist and any matches to them are definitely random i.e. wrong matches.
 
 Many algorithms are available to produce them, most frequently a simple reversal of the protein sequences will do.
 This way, the entry:
