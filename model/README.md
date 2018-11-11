@@ -1,4 +1,4 @@
-MS-Bay - Bayesian estimation of log2(FC)
+BayesQuant - Bayesian estimation of log2(FC)
 ============================================
 
 
