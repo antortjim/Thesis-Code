@@ -3,3 +3,4 @@ model/plots/*
 model/Thomas.ipynb
 model/iFeature/*
 model/traces/*
+.gitignore

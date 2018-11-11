@@ -31,7 +31,7 @@ The pipeline is powered by some the software kindly made publicly available by [
 3. moFF (Compomics, requires Python)
 4. MSqRob (Statomics, requires R)
 
-**DISCLAIMER: All credit to the awesome functionality, flexibility and easiness of deployment goes to the developers of these tools (not me).** Here it will be showed how I combined them to provide a through analysis from the mgf file to protein identifications and quantities.
+**DISCLAIMER: All credit to the awesome functionality, flexibility and easiness of deployment goes to the developers of these four tools (not me).** Here it will be showed how I combined them to provide a through analysis from the mgf file to protein identifications and quantities.
 
 
 ## Minimum requirements ##
